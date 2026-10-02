@@ -7,6 +7,7 @@ import {
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -74,7 +75,8 @@ try {
     assert(!existsSync(join(extension, "test")), "Do not ship fixtures");
   // Tests run outside the checkout, using only installed source and dependencies.
   cpSync(resolve("test"), join(target, "test"), { recursive: true });
-  cpSync(join(extension, "src"), join(target, "src"), { recursive: true });
+  // Preserve runtime dependency resolution for Git installs (only acorn locally).
+  symlinkSync(join(extension, "src"), join(target, "src"), "dir");
   execFileSync(
     process.execPath,
     ["--import", "tsx", "--test", "test/sdk.test.ts", "test/state.test.ts"],
