@@ -125,7 +125,7 @@ test("multi-text planning: add/delete/move, conflict, malformed final hunk chang
   assert(bases.has("gone.txt"));
 });
 
-test("real SDK: 80 independent fused snippets, quotas and large range repair", async () => {
+test("real SDK: 200 independent fused snippets, quotas and large range repair", async () => {
   const prior = process.env.PI_CODEBUFFER;
   process.env.PI_CODEBUFFER = JSON.stringify({
     scratch: { successes: 2, failures: 2 },
@@ -134,7 +134,7 @@ test("real SDK: 80 independent fused snippets, quotas and large range repair", a
   const h = await harness();
   try {
     const s = await h.make();
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 200; i++) {
       const result = await h.call(s, {
         action: "exec",
         source: "text(" + i + ");",

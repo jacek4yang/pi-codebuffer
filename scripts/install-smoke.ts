@@ -13,12 +13,17 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
+const expectedVersion = (
+  JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  ) as { version: string }
+).version;
 const target = mkdtempSync(join(tmpdir(), "pi-codebuffer-installed-"));
 const installed =
   process.argv[2] === "--installed" ? resolve(process.argv[3]!) : undefined;
 const artifact = installed
   ? undefined
-  : resolve(process.argv[2] ?? "pi-codebuffer-0.2.0-alpha.1.tgz");
+  : resolve(process.argv[2] ?? `pi-codebuffer-${expectedVersion}.tgz`);
 const companionHash =
   "07f68ae5bdb2aa8d4e1aa8ed8046646a70524831c9fb9ece2e2d1d24d188c118";
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -90,7 +95,7 @@ try {
   const manifest = JSON.parse(
     readFileSync(join(extension, "package.json"), "utf8"),
   );
-  assert.equal(manifest.version, "0.2.0-alpha.1");
+  assert.equal(manifest.version, expectedVersion);
   assert(existsSync(join(extension, "editing.ts")));
   assert(existsSync(join(extension, "third-party/codex-APACHE-2.0.txt")));
   assert.deepEqual(manifest.pi.extensions, ["./index.ts"]);

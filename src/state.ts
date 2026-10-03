@@ -178,6 +178,7 @@ export class State {
       const chain = this.buffers.get(name);
       if (!chain) throw new Error("STATE_CORRUPT");
       this.active.delete(name);
+      this.metrics.buffers = this.active.size;
       for (const r of chain) {
         const old = this.sources.get(r.metadata.id);
         if (old !== undefined) {
@@ -217,6 +218,8 @@ export class State {
       throw new Error();
     let source: string;
     if (previous) {
+      if (!this.active.has(e.name))
+        throw new Error("STATE_CORRUPT: revision appended to retired lineage");
       if (
         e.source !== undefined ||
         (!e.edit &&
@@ -234,7 +237,7 @@ export class State {
         e.patch !== undefined ||
         e.edit !== undefined ||
         typeof e.source !== "string" ||
-        this.buffers.size >= 64
+        this.active.size >= 64
       )
         throw new Error();
       source = e.source;
@@ -262,7 +265,7 @@ export class State {
       },
     });
     this.buffers.set(e.name, chain);
-    this.metrics.buffers = this.buffers.size;
+    this.metrics.buffers = this.active.size;
     this.metrics.revisions++;
     if (!e.syntax.valid) this.metrics.syntaxFailures++;
     if (e.patch || e.edit) {
