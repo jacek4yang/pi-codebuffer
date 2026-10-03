@@ -62,7 +62,17 @@ export const fusedSchema = Type.Union([
   ),
   Type.Object(
     {
+      action: Type.Literal("reuse"),
+      ref: Type.String(),
+      base: Type.String(),
+      rerun: Type.Optional(Type.Literal("from-start")),
+    },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
       action: Type.Literal("readScratch"),
+      lines: Type.Optional(Type.Boolean()),
       ref: Type.String(),
       base: Type.Optional(Type.String()),
       offset: Type.Optional(Type.Integer({ minimum: 0 })),
@@ -107,14 +117,14 @@ export class Fused {
             manager.getLeafId(),
             args.source,
           )
-        : args.action === "repair"
+        : args.action === "repair" || args.action === "reuse"
           ? this.store.repair({
               ref: args.ref,
               session: manager.getSessionId(),
               ancestry: new Set(manager.getBranch().map((e) => e.id)),
               base: args.base,
-              edit: args.edit,
-              run: args.run !== false,
+              edit: args.action === "repair" ? args.edit : undefined,
+              run: args.action === "reuse" || args.run !== false,
               rerun: args.rerun,
               anchor: manager.getLeafId(),
             })
@@ -134,6 +144,7 @@ export class Fused {
       value,
       execute:
         args.action === "exec" ||
+        args.action === "reuse" ||
         (args.action === "repair" && args.run !== false),
     };
   }
@@ -158,7 +169,13 @@ export class Fused {
         : {}),
     };
   }
-  read(r: Scratch, base: string | undefined, offset = 0, limit = 4000): object {
+  read(
+    r: Scratch,
+    base: string | undefined,
+    offset = 0,
+    limit = 4000,
+    lineView = false,
+  ): object {
     const v = base
       ? r.revisions.find((x) => x.metadata.id === base)
       : r.revisions.at(-1);
@@ -170,13 +187,25 @@ export class Fused {
       throw new Error(
         "INVALID_RANGE: increase limit to include a complete Unicode character",
       );
+    const lines: { start: number; end: number; text: string }[] = [];
+    if (lineView) {
+      let start = offset;
+      while (start < end && lines.length < 256) {
+        const newline = v.source.indexOf("\n", start);
+        const stop = newline < 0 ? end : Math.min(end, newline + 1);
+        lines.push({ start, end: stop, text: v.source.slice(start, stop) });
+        start = stop;
+      }
+      end = start;
+    }
     return {
       ref: r.ref,
       base: v.metadata.id,
       hash: v.metadata.hash,
+      units: v.source.length,
       offset,
       end,
-      source: v.source.slice(offset, end),
+      ...(lineView ? { lines } : { source: v.source.slice(offset, end) }),
       nextOffset: end < v.source.length ? end : null,
     };
   }

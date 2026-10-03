@@ -2,6 +2,16 @@
 
 Revisioned source editing in front of Pi's **original CodeMode executor**. No replacement VM, provider, replay engine, or telemetry.
 
+## Retained source: reuse, derive, or inspect ranges
+
+Successful `{code}` calls return `{ref, base}`. For a nontrivial program worth repeating, send `{ref, base, rerun:"from-start"}` instead of retransmitting its source. This explicitly repeats all effects and does not resume an instruction cursor. Missing acknowledgments after delegation fail closed.
+
+For a similar program, add `edit` to that compact request. It uses the same canonical Edit IR and creates a new source revision; unchanged source is not resent. `run:false` edits without execution. Do not reuse a stale base or regenerate an entire program for a small change.
+
+For large edits, `readScratch` with `lines:true` returns `{base, units, lines:[{start,end,text}], nextOffset}`: exact UTF-16 spans, retaining CRLF and Unicode. Select the first span's start and last span's end for a guarded range replacement/deletion. Pages contain at most 256 spans/16000 units; body text is not duplicated. The default view remains plain `source`. `units` is the entire source length, not a token count.
+
+Short one-shot operations still belong to direct tools: ref/base overhead can exceed the cost of a tiny script. Retention is bounded; `promote` keeps intentionally reusable source durable. No automatic replay, workspace transactions, new host runtimes or language transpilation.
+
 ## Recommended workflow: code → success, or repair → rerun
 
 Model-facing `codebuffer` calls (not JavaScript globals):
@@ -43,7 +53,7 @@ pi install git:github.com/jacek4yang/pi-codebuffer@v0.1.0
 
 Reload Pi after changing the installed version. To evaluate separately, prefix the install command with `PI_CODING_AGENT_DIR=/absolute/temporary/pi-home`. No npm publication.
 
-Supported baseline: **Pi 1.0.0, Node 24.x, local Linux filesystem** (development Node 24.21.0). Windows CI verifies legacy named buffers and scratch refusal only: `exec/repair` private scratch persistence is **unsupported/fail-closed** there. Network/shared-host stores are unsupported.
+Supported baseline: **Pi 1.0.1, Node 24.x, local Linux filesystem** (development Node 24.21.0). Windows CI verifies legacy named buffers and scratch refusal only: `exec/repair` private scratch persistence is **unsupported/fail-closed** there. Network/shared-host stores are unsupported.
 
 Back up sessions before upgrading. v0.1.0 cannot reconstruct newer named IR records; reopen those sessions with v0.2.0, or use an older session copy after rollback. Scratch cleanup neither removes transcript arguments nor rolls back external tool effects.
 

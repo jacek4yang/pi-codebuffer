@@ -64,7 +64,16 @@ const actions = Type.Union([
   ),
 ]);
 // Provider-portable object root; validate the discriminated contract locally too.
-const schema = Type.Unsafe<Static<typeof actions> | { code: string }>(
+type Compact =
+  | { code: string }
+  | {
+      ref: string;
+      base: string;
+      edit?: Static<typeof editSchema>;
+      rerun?: "from-start";
+      run?: boolean;
+    };
+const schema = Type.Unsafe<Static<typeof actions> | Compact>(
   Type.Object(
     {
       code: Type.Optional(Type.String()),
@@ -78,6 +87,7 @@ const schema = Type.Unsafe<Static<typeof actions> | { code: string }>(
             "status",
             "exec",
             "repair",
+            "reuse",
             "readScratch",
             "release",
             "promote",
@@ -95,6 +105,7 @@ const schema = Type.Unsafe<Static<typeof actions> | { code: string }>(
       revision: Type.Optional(number),
       offset: Type.Optional(Type.Integer({ minimum: 0 })),
       limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 16000 })),
+      lines: Type.Optional(Type.Boolean()),
       baseRevision: Type.Optional(number),
       old: Type.Optional(Type.String({ minLength: 1 })),
       replacement: Type.Optional(Type.String()),
@@ -105,7 +116,7 @@ const schema = Type.Unsafe<Static<typeof actions> | { code: string }>(
 const recovery =
   "Patch the existing buffer and rerun it; do not recreate the entire program. Rerunning repeats earlier side effects.";
 const description =
-  "Run {code: JavaScript}; use return for one final result (e.g. return tools.read({path})), text for incremental output. On failure repair(ref,base,edit) rather than regenerate. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?) returns bound ranges, max16000. Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
+  "Run {code: JavaScript}; use return for one final result (e.g. return tools.read({path})), text for incremental output. Success receipts retain ref/base: reuse with {ref,base,rerun:'from-start'}, or add edit for a similar program without resending source. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?,lines?) returns guarded offsets; lines:true gives exact text spans for range edits (max256 spans/16000 units). Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
 const result = (data: unknown, isError = false) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
   details: undefined,
@@ -123,7 +134,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
   let originalExecutor:
     ToolLoadout["registered"][number]["execute"] | undefined;
   const authorizedParents = new Set<string>();
-  // Pi 1.0.0 marks CodeMode model-only. Re-register its PUBLIC factory's
+  // Pi 1.0.1 marks CodeMode model-only. Re-register its PUBLIC factory's
   // unchanged executor with callable exposure, never a copied implementation.
   pi.on("tool_call", (event) => {
     if (
@@ -165,16 +176,22 @@ export default function codebuffer(pi: ExtensionAPI): void {
       };
     },
     async execute(_id, input, signal, onUpdate, ctx) {
-      const shorthand = "code" in input;
+      const shorthand = !("action" in input);
+      const hasCode = "code" in input;
       let args: Static<typeof actions> = input as Static<typeof actions>;
       let buffer: string | undefined;
       try {
-        if (shorthand) {
+        if (hasCode) {
           if (Object.keys(input).length !== 1 || typeof input.code !== "string")
             throw new Error(
               "INVALID_ARGUMENTS: code cannot be mixed with action or source",
             );
           args = { action: "exec", source: input.code };
+        } else if (shorthand && "ref" in input && "base" in input) {
+          args = {
+            ...input,
+            action: "edit" in input ? "repair" : "reuse",
+          } as Static<typeof actions>;
         }
         if (
           !ready ||
@@ -183,7 +200,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
           !ctx.tools.some((t) => t.name === "codemode")
         )
           throw new Error(
-            "INCOMPATIBLE_PI: requires Pi 1.0.0 built-in codemode, executeTool and prepareLoadout; hideRawCodemode:false is the declaration fallback",
+            "INCOMPATIBLE_PI: requires Pi 1.0.1 built-in codemode, executeTool and prepareLoadout; hideRawCodemode:false is the declaration fallback",
           );
         if (
           signal?.aborted &&
@@ -193,7 +210,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
           throw new Error("ABORTED");
         if (!Check(actions, args))
           throw new Error(
-            "INVALID_ARGUMENTS: exec(source), repair(ref,base,edit,rerun?,run?), readScratch(ref,base?,offset?,limit?), release(ref), promote(ref,base,name), retire(name), create(name,source), read(name,revision?,offset?,limit?), patch(name,baseRevision,old,replacement), run(name,revision?), status(name?)",
+            "INVALID_ARGUMENTS: {code}, {ref,base,edit?,rerun?,run?}, exec(source), reuse(ref,base,rerun?), repair(ref,base,edit,rerun?,run?), readScratch(ref,base?,offset?,limit?), release(ref), promote(ref,base,name), retire(name), create(name,source), read(name,revision?,offset?,limit?), patch(name,baseRevision,old,replacement), run(name,revision?), status(name?)",
           );
         const appendRevision = (r: ReturnType<typeof revision>) => {
           if (
@@ -209,7 +226,9 @@ export default function codebuffer(pi: ExtensionAPI): void {
         if (isFused(args)) {
           const { record: r, value, execute } = fused.prepare(args, ctx);
           if (args.action === "readScratch")
-            return result(fused.read(r, args.base, args.offset, args.limit));
+            return result(
+              fused.read(r, args.base, args.offset, args.limit, args.lines),
+            );
           if (args.action === "release") {
             fused.store.release(r);
             return result({ ref: r.ref, retention: "released" });
@@ -476,7 +495,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
       !originalExecutor
     ) {
       ctx.ui.notify(
-        "CodeBuffer unavailable: requires Pi 1.0.0 built-in codemode and prepareLoadout. Enable CodeMode or upgrade Pi.",
+        "CodeBuffer unavailable: requires Pi 1.0.1 built-in codemode and prepareLoadout. Enable CodeMode or upgrade Pi.",
         "error",
       );
       return;

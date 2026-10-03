@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Set Pi SDK/peers to the single 1.0.1 baseline.
+- Reuse retained successful source with `{ref,base,rerun:"from-start"}`; add canonical `edit` for related programs without resending source.
+- Add bounded `readScratch(lines:true)` UTF-16 spans and source units for guarded range edits; no duplicate body text.
+- Preserve stale/branch/session guards and explicit effect acknowledgment; verify 37 source and 40 packaged tests.
+
 ## 0.3.0
 
 - Add `{code}` shorthand for native CodeMode execution with compact successful `{ref,base}` receipts; retain full repair metadata on failure.

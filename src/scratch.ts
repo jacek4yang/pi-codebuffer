@@ -372,7 +372,7 @@ export class ScratchStore {
     session: string;
     ancestry: Set<string>;
     base: string;
-    edit: EditRequest;
+    edit?: EditRequest;
     run: boolean;
     rerun?: "from-start";
     anchor: string | null;
@@ -395,14 +395,18 @@ export class ScratchStore {
         throw new Error("STALE_REVISION: current " + value.metadata.id);
       if (request.run && old.delegated && request.rerun !== "from-start")
         throw new Error(
-          "RERUN_ACK_REQUIRED: repair runs from the beginning; include rerun: from-start after reviewing effects",
+          "RERUN_ACK_REQUIRED: execution restarts from the beginning; include rerun: from-start after reviewing effects",
         );
-      const ir = compileEdit(value.source, request.edit);
-      const source = applyIR(value.source, ir);
-      const next = {
-        metadata: revision("scratch", source, value, undefined, ir),
-        source,
-      };
+      const ir = request.edit
+        ? compileEdit(value.source, request.edit)
+        : undefined;
+      const source = ir ? applyIR(value.source, ir) : value.source;
+      const next = ir
+        ? {
+            metadata: revision("scratch", source, value, undefined, ir),
+            source,
+          }
+        : value;
       const r: Scratch = {
         ...old,
         anchor: request.anchor,
@@ -410,7 +414,9 @@ export class ScratchStore {
         pid: process.pid,
         execution:
           request.run && next.metadata.syntax.valid ? "running" : "not_started",
-        revisions: [...old.revisions, next].slice(-this.limits.revisions),
+        revisions: ir
+          ? [...old.revisions, next].slice(-this.limits.revisions)
+          : old.revisions,
       };
       this.reserve(records, r);
       this.save(r);

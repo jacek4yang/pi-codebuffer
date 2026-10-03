@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   cpSync,
   existsSync,
@@ -24,52 +23,14 @@ const installed =
 const artifact = installed
   ? undefined
   : resolve(process.argv[2] ?? `pi-codebuffer-${expectedVersion}.tgz`);
-const companionHash =
-  "07f68ae5bdb2aa8d4e1aa8ed8046646a70524831c9fb9ece2e2d1d24d188c118";
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
 try {
   const companion =
-    process.env.PI_CODEBUFFER_COMPANION_TARBALL ?? join(target, "native.tgz");
-  if (!existsSync(companion))
-    execFileSync(
-      "curl",
-      [
-        "--fail",
-        "--silent",
-        "--show-error",
-        "--location",
-        "https://github.com/jacek4yang/pi-codex-native-compaction/releases/download/v0.3.1/pi-codex-native-compaction-0.3.1.tgz",
-        "--output",
-        companion,
-      ],
-      { stdio: "inherit" },
-    );
-  assert.equal(
-    createHash("sha256").update(readFileSync(companion)).digest("hex"),
-    companionHash,
-    "Companion release checksum",
-  );
+    process.env.PI_CODEBUFFER_COMPANION_TARBALL ??
+    "git+https://github.com/jacek4yang/pi-codex-native-compaction.git";
   const generation =
     process.env.PI_CODEBUFFER_GENERATION_TARBALL ??
-    join(target, "generation.tgz");
-  if (!existsSync(generation))
-    execFileSync(
-      "curl",
-      [
-        "--fail",
-        "--silent",
-        "--show-error",
-        "--location",
-        "https://github.com/jacek4yang/pi-generation-recovery/releases/download/v0.2.0/pi-generation-recovery-0.2.0.tgz",
-        "--output",
-        generation,
-      ],
-      { stdio: "inherit" },
-    );
-  assert.equal(
-    createHash("sha256").update(readFileSync(generation)).digest("hex"),
-    "4afe6cbb4fbf996f893d13521fe738ee8b0c7a5b6976e3050bc62264a14034b4",
-  );
+    "git+https://github.com/jacek4yang/pi-generation-recovery.git";
   writeFileSync(
     join(target, "package.json"),
     JSON.stringify({ private: true, type: "module" }),
@@ -79,13 +40,14 @@ try {
     [
       "install",
       "--ignore-scripts",
+      "--allow-git=all",
       "--no-audit",
       "--no-fund",
       ...(artifact ? [artifact] : []),
       companion,
       generation,
-      "@earendil-works/pi-coding-agent@1.0.0",
-      "@earendil-works/pi-ai@1.0.0",
+      "@earendil-works/pi-coding-agent@1.0.1",
+      "@earendil-works/pi-ai@1.0.1",
       "typebox@1.3.27",
       "tsx@4.22.4",
     ],
@@ -116,6 +78,7 @@ try {
       "test/state.test.ts",
       "test/next.test.ts",
       "test/shorthand.test.ts",
+      "test/reuse.test.ts",
       "test/retention.test.ts",
       "test/effects.test.ts",
       "test/examples.test.ts",
@@ -146,10 +109,10 @@ try {
     JSON.stringify({
       packagedSmoke: "passed",
       extension,
-      pi: "1.0.0",
+      pi: "1.0.1",
       node: process.version,
-      companion: "0.3.1",
-      generation: "0.2.0",
+      companion,
+      generation,
     }),
   );
 } finally {

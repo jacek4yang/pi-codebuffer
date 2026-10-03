@@ -52,7 +52,7 @@ test("action-specific validation rejects incomplete/irrelevant fields without mu
   }
 });
 
-test("Pi 1.0.0 baseline: model-only CodeMode rejects nested orchestration", async () => {
+test("Pi 1.0.1 baseline: model-only CodeMode rejects nested orchestration", async () => {
   const h = await harness({
     extension: false,
     factories: [
