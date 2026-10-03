@@ -9,19 +9,19 @@ Workload: clean execution; 12 KiB syntax failure plus repair; 12 KiB runtime fai
 | Top-level model tool calls                           |                            54 |                27 |
 | Complete tool name + arguments JSON bytes            |                        45,900 |            35,245 |
 | Full SDK tool-result JSON bytes                      |                        18,342 |            18,142 |
-| Provider request bodies, including growing history   |                     5,345,847 |         2,342,186 |
+| Provider request bodies, including growing history   |                     5,452,551 |         2,395,538 |
 | Provider SSE response body bytes                     |                       211,449 |           142,515 |
 | Provider requests                                    |                           108 |                54 |
-| Repeated tool declaration bytes (subset of requests) |                       689,796 |           344,898 |
+| Repeated tool declaration bytes (subset of requests) |                       796,500 |           398,250 |
 | Separately submitted examples                        |                             0 |                 0 |
 | Complete initial source submitted                    |                        33,012 |            33,012 |
 | Old/replacement/text body bytes in repairs           |                         8,212 |                18 |
 | Named delta reconstruction applications              |                            27 |                 0 |
-| Measured named reconstruction time (ms)              |                          9.97 |                 0 |
+| Measured named reconstruction time (ms)              |                          9.86 |              0.00 |
 | Accounted retained named cache bytes                 |                       117,745 |                 0 |
 | Final private scratch JSON bytes                     |                             0 |            10,710 |
 | Durable custom-entry bytes                           |                        49,602 |                 0 |
-| Workload wall time (ms)                              |                         5,379 |             4,766 |
+| Workload wall time (ms)                              |                         5,446 |             4,739 |
 
 Each protocol performs the same 26 native delegations: the initial syntax failure never delegates. Both already avoid full-program regeneration on repair. The fused improvement here is fewer top-level invocations and range editing without retransmitting an 8 KiB old body—not a claim that legacy exact patches regenerated everything.
 

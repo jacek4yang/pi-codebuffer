@@ -84,7 +84,7 @@ const schema = Type.Unsafe<Static<typeof actions>>(
       ),
       ref: Type.Optional(Type.String()),
       base: Type.Optional(Type.String()),
-      edit: Type.Optional(Type.Unknown()),
+      edit: Type.Optional(editSchema),
       rerun: Type.Optional(Type.Literal("from-start")),
       run: Type.Optional(Type.Boolean()),
       name: Type.Optional(name),
