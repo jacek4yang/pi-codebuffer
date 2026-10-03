@@ -64,23 +64,26 @@ const actions = Type.Union([
   ),
 ]);
 // Provider-portable object root; validate the discriminated contract locally too.
-const schema = Type.Unsafe<Static<typeof actions>>(
+const schema = Type.Unsafe<Static<typeof actions> | { code: string }>(
   Type.Object(
     {
-      action: Type.Union(
-        [
-          "create",
-          "read",
-          "patch",
-          "run",
-          "status",
-          "exec",
-          "repair",
-          "readScratch",
-          "release",
-          "promote",
-          "retire",
-        ].map((a) => Type.Literal(a)),
+      code: Type.Optional(Type.String()),
+      action: Type.Optional(
+        Type.Union(
+          [
+            "create",
+            "read",
+            "patch",
+            "run",
+            "status",
+            "exec",
+            "repair",
+            "readScratch",
+            "release",
+            "promote",
+            "retire",
+          ].map((a) => Type.Literal(a)),
+        ),
       ),
       ref: Type.Optional(Type.String()),
       base: Type.Optional(Type.String()),
@@ -102,7 +105,7 @@ const schema = Type.Unsafe<Static<typeof actions>>(
 const recovery =
   "Patch the existing buffer and rerun it; do not recreate the entire program. Rerunning repeats earlier side effects.";
 const description =
-  "Use exec(source); on failure repair(ref,base,edit) rather than regenerate. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?) returns bound ranges, max16000. Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
+  "Run {code: JavaScript}; use return for one final result (e.g. return tools.read({path})), text for incremental output. On failure repair(ref,base,edit) rather than regenerate. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?) returns bound ranges, max16000. Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
 const result = (data: unknown, isError = false) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
   details: undefined,
@@ -161,9 +164,18 @@ export default function codebuffer(pi: ExtensionAPI): void {
         },
       };
     },
-    async execute(_id, args, signal, onUpdate, ctx) {
+    async execute(_id, input, signal, onUpdate, ctx) {
+      const shorthand = "code" in input;
+      let args: Static<typeof actions> = input as Static<typeof actions>;
       let buffer: string | undefined;
       try {
+        if (shorthand) {
+          if (Object.keys(input).length !== 1 || typeof input.code !== "string")
+            throw new Error(
+              "INVALID_ARGUMENTS: code cannot be mixed with action or source",
+            );
+          args = { action: "exec", source: input.code };
+        }
         if (
           !ready ||
           (!prepared && options.hideRawCodemode) ||
@@ -265,7 +277,11 @@ export default function codebuffer(pi: ExtensionAPI): void {
                 {
                   type: "text" as const,
                   text: JSON.stringify({
-                    ...fused.describe(r),
+                    ...(shorthand &&
+                    r.execution === "completed" &&
+                    !storageError
+                      ? { ref: r.ref, base: value.metadata.id }
+                      : fused.describe(r)),
                     ...(storageError
                       ? { storageError, retention: "recovery_required" }
                       : {}),

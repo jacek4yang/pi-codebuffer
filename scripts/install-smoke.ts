@@ -115,6 +115,7 @@ try {
       "test/sdk.test.ts",
       "test/state.test.ts",
       "test/next.test.ts",
+      "test/shorthand.test.ts",
       "test/retention.test.ts",
       "test/effects.test.ts",
       "test/examples.test.ts",
