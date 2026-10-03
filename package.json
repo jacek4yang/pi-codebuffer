@@ -1,6 +1,6 @@
 {
   "name": "pi-codebuffer",
-  "version": "0.1.0",
+  "version": "0.2.0-alpha.1",
   "description": "Persistent revisioned source buffers for Pi's built-in CodeMode.",
   "type": "module",
   "license": "MIT",
@@ -22,8 +22,14 @@
       "./index.ts"
     ]
   },
+  "exports": {
+    ".": "./index.ts",
+    "./editing": "./editing.ts"
+  },
   "files": [
     "index.ts",
+    "editing.ts",
+    "third-party",
     "src",
     "README.md",
     "LICENSE",
@@ -38,7 +44,8 @@
     "check": "npm run typecheck && npm run lint && npm test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "smoke:install": "tsx scripts/install-smoke.ts"
+    "smoke:install": "tsx scripts/install-smoke.ts",
+    "benchmark": "tsx scripts/benchmark.ts"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",

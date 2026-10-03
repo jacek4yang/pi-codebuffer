@@ -97,6 +97,16 @@ test("configuration defaults and strict rejection", () => {
     enabled: true,
     hideRawCodemode: true,
     debug: false,
+    scratch: {
+      scratchBytes: 67108864,
+      successes: 4,
+      failures: 16,
+      revisions: 8,
+      ttlMs: 86400000,
+    },
+    cacheBytes: 33554432,
+    durableBytes: 67108864,
+    preferredFormat: "replace",
   });
   assert.equal(config('{"enabled":false}').enabled, false);
   for (const raw of [

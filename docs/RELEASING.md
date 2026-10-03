@@ -1,5 +1,13 @@
 # Releasing
 
+## Current candidate boundary
+
+`0.2.0-alpha.1` is an unreleased evaluation candidate. Do not merge protected main, tag, create a stable release or publish npm from this task. First resolve `ACCEPTANCE.md`, including policy-equivalent workspace transactions and their rollback/recovery validation. An installable source-workflow package is not full acceptance.
+
+For candidate validation, use a new temporary Pi home and session, install the task branch, compare its checkout SHA with the PR head, then run `npm run smoke:install -- --installed /absolute/checkout`. Keep the active installation untouched. Undo evaluation by disposing that temporary session/home; original native tool effects in an external workspace are NOT undone. There is no workspace-transaction rollback procedure in this candidate because no such mutator is exposed.
+
+The stable-release procedure below remains future maintainer work, not authorization to perform it for this candidate.
+
 GitHub-first. Do not publish npm for v0.1.0.
 
 1. Develop on a feature branch, update version/changelog and keep package-lock in

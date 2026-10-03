@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha.1 (unreleased candidate)
+
+- Add one-call exec/repair, explicit rerun acknowledgement, private bounded scratch retention and promotion/release.
+- Add shared versioned splice IR, exact batches, revision-bound ranges and strict Codex-style buffer patches; export pure multi-text planning.
+- Preserve v1 reading; add branch-prefix caching, bounded source cache, periodic verified source snapshots, named retirement and durable growth quotas.
+- Test stress, cancellation, crash-owner retention, partial external effects, isolated packages and both companion load orders. Add byte-envelope protocol benchmark.
+- Not release-ready for workspace mutation: no policy-equivalent transactional file backend; Windows scratch ACLs fail closed. See docs/ACCEPTANCE.md.
+
 ## 0.1.0
 
 - Add one CodeBuffer tool for create, read, exact patch, run and metadata status.

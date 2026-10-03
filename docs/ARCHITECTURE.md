@@ -1,102 +1,27 @@
 # Architecture
 
-## Source inspection and the Pi 1.0.0 boundary
+## Executor boundary
 
-Inspected npm release `@earendil-works/pi-coding-agent@1.0.0` and upstream
-`earendil-works/pi` main `9fba660cf1caca0ade5bea72269352416e595a19`.
-The current upstream SHA matched the task's baseline at inspection time; no
-implementation imports or depends on that private source/SHA.
+The model sees a sequential, model-only `codebuffer` orchestrator. Pi 1.0.0's built-in CodeMode is model-only, so hiding its declaration alone cannot make nested execution legal. The extension captures its original bound `execute`, obtains the public official factory definition, and adapts exposure to `direct` without replacing the executor or options. `prepareLoadout.hiddenDeclarations` hides the raw declaration; both tools remain active. `hideRawCodemode:false` is the explicit visibility fallback, not a substitute runtime.
 
-In upstream `packages/coding-agent/src/core/agent-session.ts`, callable tools
-exclude `model-only` tools. CodeMode's built-in definition is `model-only`.
-Thus the proposed hide-only approach demonstrably fails: the real-SDK baseline
-test receives `Tool codemode not found`, despite CodeMode being active.
+`ctx.executeTool("codemode", {code}, {signal,onUpdate})` remains the only execution path. Immediate parent IDs guard recursion. Streaming, nested permissions, discovery, MCP, images and `models.*` remain Pi's responsibilities. Nested usage is not counted again. Required capability failures are explicit. No private Pi imports or provider hooks.
 
-The supported public surfaces provide a minimal adaptation:
+## Source backends
 
-1. Register `codebuffer` as a model-only, sequential orchestrator.
-2. Capture the original bound CodeMode `execute` from public
-   `prepareLoadout.registered` before adapting it.
-3. At session startup, get CodeMode's definition from public
-   `createCodemodeExtension()` using a registration adapter. Re-register its
-   definition with `exposure: "direct"` **and the captured original execute
-   function**, preserving the actual executor and its original options.
-4. Activate both names. `prepareLoadout.hiddenDeclarations` hides raw CodeMode
-   without deactivating it. The public factory's loadout hook supplies CodeMode's
-   generated documentation/catalog inside CodeBuffer's tool description.
-5. A run pins the reconstructed revision, records an attempt, and delegates
-   through `ctx.executeTool("codemode", { code }, { signal, onUpdate })`.
-6. Permit nested CodeMode calls only when their immediate parent is an active
-   CodeBuffer run. CodeMode itself excludes its own name from its script tool
-   catalog; CodeBuffer is model-only. The extra guard blocks reentry through
-   another nested tool.
+Named v1 history stays canonical in custom `pi-codebuffer.v1` entries on `getBranch()`. Initial source is full; exact deltas and new version-1 splice IR revisions are replayed with UUID/parent/hash/syntax verification. Old entries are not rewritten. IR revisions have a UUID parent and a full SHA-256 base guard. Syntax is Acorn parse-only async-body preflight; QuickJS remains authoritative. Invalid drafts are readable but never delegated.
 
-This is an **exposure adapter**, not a new executor. The bound execute function
-comes from the original registration, not an independently configured execution
-clone. A regression with the original factory's `models:false` proves those
-options survive. No private imports, QuickJS copy, permission replacement, MCP
-proxy, model proxy or output truncation implementation exists here. The public
-factory is also used to preserve the official schema/renderers. Loading another
-extension that replaces `codemode` is unsupported.
+A branch-prefix index reuses only identical entry ancestry within the same session. Divergence/fork/reload rebuilds; sibling same-name/revision numbers cannot authorize edits. Source values use a bounded LRU; metadata is discarded when the index budget is exceeded. This bounds retained derived cache accounting, **not peak reconstruction memory or Pi's resident transcript**. Very large pre-existing histories can still require a linear rebuild. New revisions include independently hash-verified source snapshots every 64 revisions; reconstruction from a new snapshot needs at most 63 following deltas. This does not rewrite old v1 chains.
 
-The adapter registers during `session_start`, after all initial declarations
-exist. Missing APIs/executor refuse tool operations instead of selecting another
-runtime. The `hideRawCodemode:false` fallback changes visibility only.
-SDK callers should supply Pi's public built-in factory, as demonstrated in tests;
-ordinary Pi CLI installations already do so.
+`exec` allocates an independent scratch lineage in a private plugin store, not a named slot or new full-source custom entry. Submitted source is retained before delegation. The store serializes cooperating operations with a private lock and atomically replaces a JSON record containing at most eight source snapshots. These are **source** snapshots, never execution checkpoints. A repair creates a UUID revision and splice provenance. Source/hash identity is pinned before awaiting CodeMode.
 
-## Revision log
+A quota reservation includes twice the serialized record size plus settlement headroom for atomic replacement. Running sources cannot be evicted. Terminal success is eligible for the recent-success window; syntax failures, runtime failures and interrupted work are retained under the failed-handle policy. Dead owner PIDs are treated as interrupted, not resumed. The same process never automatically replays anything.
 
-Custom entry type: `pi-codebuffer.v1`. The first revision includes full source.
-Each later revision includes only `{old,replacement}` and metadata:
+## Editing boundary
 
-- name, branch-local revision number, immutable UUID;
-- parent UUID (null for creation);
-- SHA-256 of exact UTF-8 reconstructed source;
-- ISO timestamp and parse-only syntax result.
+`editing.ts` exports pure frontend decoding/planning and one `EditIR {version:1,baseHash,splices}` executor. UTF-16 half-open splices are sorted, checked for overlap/surrogate splits, and applied as one result. Exact replacements compile against the same base, including count guards. Ranges never rebase. Strict Codex-style parsing compiles complete envelopes before planning.
 
-No newline normalization or fuzzy patching. Exact matching includes overlapping
-occurrences. Parent must be the current branch head. Failed patches append only a
-counter event, never a revision. Corrupt data fail closed; no silent repair.
+Buffer patches accept only virtual `Update File: buffer`; unexpected paths cannot become filesystem writes. `compileTextPatchSet` is an offline, pure multi-text planner for explicit supplied snapshots, with add/delete/move expressed as creation/deletion/splices. It is **not a workspace backend**, does not observe actual filesystem identities, and cannot authorize or commit files. No mixed transaction is supported.
 
-On every operation, reconstruct from `ctx.sessionManager.getBranch()`, never
-`getEntries()`. Branch paths include pre-compaction custom entries. Replaying
-deltas verifies hashes, parents, revision order, source limits and syntax before
-use. There is no mutable cache to invalidate on resume, fork, tree navigation or
-compaction. UUIDs make revision identity unambiguous across sibling branches;
-numbers are convenient addresses relative to the active branch.
+## Workspace capability blocker
 
-All mutations finish synchronously before execution awaits; the tool is also
-declared sequential. No last-write-wins merge. One Pi process should own a
-session file: this extension does not provide cross-process session-file locks.
-
-## Output and privacy boundary
-
-Revision/status responses contain no source or patch text. Explicit reads are
-bounded. Create/patch arguments remain ordinary model conversation history;
-custom entries themselves are never projected into context.
-
-Nested CodeMode content (including images), details, error state and update
-callbacks are forwarded. A short revision/hash/status prefix identifies the
-execution. Pi records nested usage; it is not copied onto the outer result to
-avoid double accounting. Neither outputs nor runtime error text are stored in
-CodeBuffer custom metadata.
-
-Syntax precheck uses Acorn in a synthetic async function, checks that source
-cannot escape that wrapper, and adjusts locations to source coordinates. It is
-compile-only. Syntax validity is not proof of QuickJS compatibility.
-
-## Metrics and limits
-
-Counters are replayed from the same branch log. Run attempts are counted before
-delegation, including permission/runtime failure, not syntax-rejected runs.
-Reconstructed source bytes count source handed to delegated attempts.
-Syntax failures count invalid revisions, not each attempted run of one.
-Patch failures count rejected semantic mutations, not Pi's schema rejections.
-Patch bytes include UTF-8 JSON encoding of the stored delta, excluding metadata;
-avoided bytes are a clamped per-patch source-minus-delta estimate.
-
-256 KiB source, 64 buffer names per branch, 16,000 UTF-16 characters per read.
-Replay is linear in revision count and repeatedly parses/reconstructs source;
-very long chains may become slow. No premature checkpoints/database framework.
-Session retention/deletion and source confidentiality remain Pi/user concerns.
+Pi 1.0.0 publicly exposes policy-visible tool calls, but not a side-effect-free authorization decision equivalent to every policy guarding built-in `edit/write`, nor a general cooperating file-mutation queue. A new tool name would not inherit name-specific policy denials. Calling the existing writer to a staging path would authorize the wrong target. Host `fs` renames after such a check would bypass that policy. This candidate deliberately exposes no mutating workspace tool instead of weakening that boundary. See ACCEPTANCE.md.

@@ -1,54 +1,22 @@
 # Testing
 
-Use Node 24+:
+Baseline inspected: e46b4b33e592b7ff5bc8681399937646ce6d1cb3 (v0.1.0), Pi 1.0.0, Node 24.21.0. Candidate validation uses the pinned released Pi SDK, original QuickJS executor and local deterministic HTTP/SSE providers. No paid/real provider quota is consumed. TypeScript/ESLint are the configured gates; no TypeScript LSP server is configured in the development workspace.
 
 ```sh
 npm ci --no-audit --no-fund
 npm run check
 npm run format:check
 npm pack --json
-npm run smoke:install -- pi-codebuffer-0.1.0.tgz
+npm run smoke:install
+npm run benchmark -- /tmp/codebuffer-benchmark.json
 ```
 
-`check` includes strict TypeScript, ESLint and unit/real-SDK tests.
-The isolated smoke installs the actual tarball, pinned Pi 1.0.0 and released
-native-compaction v0.3.1 outside this checkout, then copies only regression tests
-and links installed state code into that directory, preserving its runtime
-dependency resolution. CI also tests a runtime-only (Git-style) install layout. Execution uses installed extension
-files and installed dependencies, not the repository's node_modules.
+The smoke script installs the tarball plus pinned Pi 1.0.0 and companion development fixtures in an isolated temporary directory. It loads the packaged root entry, links the installed source rather than copying it out of dependency scope, and runs the same real-SDK cases. `--installed /absolute/path` tests a separately installed runtime-only/Git checkout. No active Pi home/settings are changed.
 
-The companion tarball is fetched from its GitHub release and checked against
-SHA-256 `07f68ae5bdb2aa8d4e1aa8ed8046646a70524831c9fb9ece2e2d1d24d188c118`.
-Set `PI_CODEBUFFER_COMPANION_TARBALL` to an already downloaded tarball to avoid
-redownloading. Curl/npm respect the invoking environment; no proxy is configured.
-Ordinary CI requires no credentials. A local companion test can also run with
-`PI_CODEBUFFER_COMPANION=/absolute/path/to/its/index.ts npm test`.
+Fixtures: native-compaction v0.3.1, SHA-256 `07f68ae5bdb2aa8d4e1aa8ed8046646a70524831c9fb9ece2e2d1d24d188c118`; generation-recovery v0.2.0, SHA-256 `4afe6cbb4fbf996f893d13521fe738ee8b0c7a5b6976e3050bc62264a14034b4`. They are not runtime dependencies. Set `PI_CODEBUFFER_COMPANION_TARBALL` / `PI_CODEBUFFER_GENERATION_TARBALL` to predownloaded verified artifacts.
 
-## Evidence
+Coverage includes v1 compatibility, original executor options, hidden declarations, nested permissions/images, syntax preflight, immutable/stale edits, restart/fork/tree/compaction, cancellation, killed source owners, protected quotas, symlinks/corruption/orphans, complete-batch validation and Unicode. Stress fixtures run 1000 private-store lineages, 80 real-SDK one-call snippets with a two-success limit, and 1200 incremental named revisions. Both companion load orders exercise a failed scratch, native checkpoint, restart and repair. Native writes followed by bad nested schema or unavailable diagnostics retain their effects and return failed execution; nonzero command results must be checked by source.
 
-Tests use the released Pi SDK, real agent loop, public resource loader, actual
-CodeMode QuickJS runtime and localhost HTTP/SSE provider. Only model responses
-are scripted. Dummy OAuth credentials are test-only; no paid API is called.
+README examples run through the real schema. CI uses Linux for full/packaged behavior and a Windows boundary job for legacy SDK plus explicit no-write scratch refusal. Windows scratch and workspace transactions are not verified support.
 
-- Baseline without adapter: active model-only CodeMode is not callable.
-- Adapted run: raw declaration absent from actual provider request, executor
-  active and callable, original models-disabled option retained.
-- Structured tool results, images, discovery, persistent store, partial output,
-  runtime errors, nested permission rejection and recursion guard.
-- 12,367-byte invalid source created once; syntax run invokes no executor;
-  82-byte model-facing patch request (34-byte delta), then successful run.
-- Actual nested read offset failure fixed by only changing the argument.
-- Unique/ambiguous/overlapping/missing/deleting patches; immutable parent/hash,
-  stale bases, bad state, Unicode byte metrics and configuration rejection.
-- Disk reopen, fork and real SDK tree navigation isolate abandoned revisions.
-- Real ordinary compaction and restart preserve source but do not project custom
-  source entries into the provider request.
-- Native companion's actual checkpoint hook and restart preserve both its opaque
-  checkpoint and CodeBuffer revisions without lifecycle interception.
-
-The benchmark is deterministic byte accounting, not measured token savings.
-No live-provider, live-MCP-server, billing or remote Codex correctness claim is
-made. Those services remain delegated to Pi rather than reimplemented.
-
-CI runs the same local gates plus the isolated installed regressions, and uploads
-the tarball. The required protected-branch job is named `verify`.
+No transaction rollback/kill-mid-file-commit tests are claimed: that backend is absent. See ACCEPTANCE.md for remaining blockers instead of interpreting passing tests as complete acceptance.

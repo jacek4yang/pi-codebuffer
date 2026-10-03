@@ -18,7 +18,7 @@ const installed =
   process.argv[2] === "--installed" ? resolve(process.argv[3]!) : undefined;
 const artifact = installed
   ? undefined
-  : resolve(process.argv[2] ?? "pi-codebuffer-0.1.0.tgz");
+  : resolve(process.argv[2] ?? "pi-codebuffer-0.2.0-alpha.1.tgz");
 const companionHash =
   "07f68ae5bdb2aa8d4e1aa8ed8046646a70524831c9fb9ece2e2d1d24d188c118";
 const npm = process.platform === "win32" ? "npm.cmd" : "npm";
@@ -44,6 +44,27 @@ try {
     companionHash,
     "Companion release checksum",
   );
+  const generation =
+    process.env.PI_CODEBUFFER_GENERATION_TARBALL ??
+    join(target, "generation.tgz");
+  if (!existsSync(generation))
+    execFileSync(
+      "curl",
+      [
+        "--fail",
+        "--silent",
+        "--show-error",
+        "--location",
+        "https://github.com/jacek4yang/pi-generation-recovery/releases/download/v0.2.0/pi-generation-recovery-0.2.0.tgz",
+        "--output",
+        generation,
+      ],
+      { stdio: "inherit" },
+    );
+  assert.equal(
+    createHash("sha256").update(readFileSync(generation)).digest("hex"),
+    "4afe6cbb4fbf996f893d13521fe738ee8b0c7a5b6976e3050bc62264a14034b4",
+  );
   writeFileSync(
     join(target, "package.json"),
     JSON.stringify({ private: true, type: "module" }),
@@ -57,6 +78,7 @@ try {
       "--no-fund",
       ...(artifact ? [artifact] : []),
       companion,
+      generation,
       "@earendil-works/pi-coding-agent@1.0.0",
       "@earendil-works/pi-ai@1.0.0",
       "typebox@1.3.27",
@@ -68,7 +90,9 @@ try {
   const manifest = JSON.parse(
     readFileSync(join(extension, "package.json"), "utf8"),
   );
-  assert.equal(manifest.version, "0.1.0");
+  assert.equal(manifest.version, "0.2.0-alpha.1");
+  assert(existsSync(join(extension, "editing.ts")));
+  assert(existsSync(join(extension, "third-party/codex-APACHE-2.0.txt")));
   assert.deepEqual(manifest.pi.extensions, ["./index.ts"]);
   assert(existsSync(join(extension, "LICENSE")));
   if (!installed)
@@ -79,7 +103,18 @@ try {
   symlinkSync(join(extension, "src"), join(target, "src"), "dir");
   execFileSync(
     process.execPath,
-    ["--import", "tsx", "--test", "test/sdk.test.ts", "test/state.test.ts"],
+    [
+      "--import",
+      "tsx",
+      "--test",
+      "test/sdk.test.ts",
+      "test/state.test.ts",
+      "test/next.test.ts",
+      "test/retention.test.ts",
+      "test/effects.test.ts",
+      "test/examples.test.ts",
+      "test/storage-encoding.test.ts",
+    ],
     {
       cwd: target,
       stdio: "inherit",
@@ -87,6 +122,10 @@ try {
         ...process.env,
         PI_CODEBUFFER: "{}",
         PI_CODEBUFFER_TEST_EXTENSION: join(extension, "index.ts"),
+        PI_CODEBUFFER_GENERATION: join(
+          target,
+          "node_modules/pi-generation-recovery/index.ts",
+        ),
         PI_CODEBUFFER_COMPANION: join(
           target,
           "node_modules/pi-codex-native-compaction/index.ts",
@@ -101,6 +140,7 @@ try {
       pi: "1.0.0",
       node: process.version,
       companion: "0.3.1",
+      generation: "0.2.0",
     }),
   );
 } finally {
