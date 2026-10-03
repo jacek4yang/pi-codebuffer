@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Add `{code}` shorthand for native CodeMode execution with compact successful `{ref,base}` receipts; retain full repair metadata on failure.
+- Teach awaited top-level return instead of redundant text-await wrappers; preserve explicit incremental output, legacy actions and side-effect acknowledgment.
+- Verify shorthand and repair through real SDK and packaged-install fixtures. Default raw-CodeMode hiding remains unchanged.
+
 ## 0.2.0
 
 - Add one-call exec/repair, explicit rerun acknowledgement, private bounded scratch retention and promotion/release.

@@ -2,15 +2,17 @@
 
 Revisioned source editing in front of Pi's **original CodeMode executor**. No replacement VM, provider, replay engine, or telemetry.
 
-## Recommended workflow: exec → success, or repair → rerun
+## Recommended workflow: code → success, or repair → rerun
 
 Model-facing `codebuffer` calls (not JavaScript globals):
 
 ```json
-{ "action": "exec", "source": "text(answer);" }
+{ "code": "return tools.read({path: 'README.md'});" }
 ```
 
-The failure returns `ref` and `base` (full immutable UUID), syntax/execution state, hash, source bytes, retention state, and a recovery hint. Repair in **one** further invocation:
+`code` is the compact spelling of `exec(source)`, with exactly the same executor and safety checks. Top-level `return` awaits and emits its result; use `text()` only for multiple/incremental results. Success adds only `{ref, base}` to native output; the retained source remains available for repair or promotion. Do not mix `code` with legacy fields. Existing `action:"exec",source` remains compatible.
+
+A failure returns `ref` and `base` (full immutable UUID), syntax/execution state, hash, source bytes, retention state, and a recovery hint. Repair in **one** further invocation:
 
 ```json
 {
@@ -20,7 +22,7 @@ The failure returns `ref` and `base` (full immutable UUID), syntax/execution sta
   "rerun": "from-start",
   "edit": {
     "format": "replace",
-    "edits": [{ "old": "answer", "replacement": "42" }]
+    "edits": [{ "old": "README.md", "replacement": "docs/EDITING.md" }]
   }
 }
 ```
@@ -34,7 +36,7 @@ Legacy `create/read/patch/run/status` remain supported. New named `patch` can us
 ## Install, platforms and rollback
 
 ```sh
-pi install git:github.com/jacek4yang/pi-codebuffer@v0.2.0
+pi install git:github.com/jacek4yang/pi-codebuffer
 # Roll back the package (not external effects):
 pi install git:github.com/jacek4yang/pi-codebuffer@v0.1.0
 ```
@@ -49,7 +51,9 @@ Back up sessions before upgrading. v0.1.0 cannot reconstruct newer named IR reco
 
 CodeBuffer owns CodeMode source lifecycle, immutable source editing, execution/repair, bounded scratch retention and reusable **pure** editing primitives. A complete source edit commits one revision or none; syntax-invalid drafts remain repairable. This is not atomicity or rollback of tools invoked by the source.
 
-Workspace file transactions, Git/build/package workflows, process management and general engineering orchestration belong to future **pi-workflow**, not this package. Pi 1.0.0 has no inspected public API providing policy-equivalent authorization plus file-mutation coordination; no private-API bypass is used. The multi-text planner never writes files.
+Workspace editing and command conveniences belong to **pi-workflow**, not this package. Its enhanced edit consumes the pure IR and Pi's public mutation queue; its workflow tool delegates through Pi's policy-visible bash tool. The multi-text planner here never writes files.
+
+Use direct tools for simple operations. For composition, CodeBuffer can be the sole model-visible script tool (`hideRawCodemode:true`, the default), while still delegating to native CodeMode. Keep native CodeMode enabled (`mode:"on"`) to retain direct tools; hiding its declaration does not remove the executor.
 
 ## Editing and retention
 

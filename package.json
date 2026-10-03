@@ -1,6 +1,6 @@
 {
   "name": "pi-codebuffer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Persistent revisioned source buffers for Pi's built-in CodeMode.",
   "type": "module",
   "license": "MIT",

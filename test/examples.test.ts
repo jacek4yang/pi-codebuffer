@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { harness, jsonOf, textOf } from "./harness.js";
 import { State, ENTRY, revision, summary } from "../src/state.js";
@@ -18,6 +18,9 @@ test("README JSON examples and documented Codex repair pass the real schema", as
   const h = await harness();
   try {
     const s = await h.make();
+    // First documented path is absent; repair points to a real fixture file.
+    mkdirSync(join(h.dir, "docs"));
+    writeFileSync(join(h.dir, "docs/EDITING.md"), "fixture editing guide");
     const [exec, repair] = snippets("README.md");
     const bad = await h.call(s, exec!);
     assert.equal(bad.isError, true);
