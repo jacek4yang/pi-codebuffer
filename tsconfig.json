@@ -9,5 +9,11 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["index.ts", "src/**/*.ts", "test/**/*.ts", "scripts/**/*.ts"]
+  "include": [
+    "index.ts",
+    "editing.ts",
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "scripts/**/*.ts"
+  ]
 }

@@ -92,11 +92,54 @@ test("bounded source, valid names, metrics use UTF-8 bytes not tokens", () => {
   assert.equal(state.metrics.reconstructedSourceBytes, 3);
   assert.equal(state.metrics.estimatedAvoidedRegenerationBytes, 0);
 });
+test("retiring 200 lineages frees active slots without deleting old revisions", () => {
+  const state = new State([]);
+  const records: { type: string; customType: string; data: unknown }[] = [];
+  for (let i = 0; i < 200; i++) {
+    const name = "lineage" + i;
+    const r = revision(name, "text(" + i + ");");
+    state.apply(r);
+    records.push({ type: "custom", customType: "pi-codebuffer.v1", data: r });
+    assert.equal(state.active.size, 1);
+    const retired = { kind: "retire", name };
+    state.apply(retired);
+    records.push({
+      type: "custom",
+      customType: "pi-codebuffer.v1",
+      data: retired,
+    });
+    assert.equal(state.metrics.buffers, 0);
+  }
+  const restored = new State(records);
+  assert.equal(restored.active.size, 0);
+  assert.equal(restored.get("lineage199", 1).source, "text(199);");
+  assert.equal(restored.get("lineage0", 1).source, "text(0);");
+  const old = restored.get("lineage0");
+  assert.throws(
+    () =>
+      restored.apply(
+        revision("lineage0", "text(1);", old, { old: "0", replacement: "1" }),
+      ),
+    /retired lineage/,
+  );
+  assert.equal(restored.metrics.revisions, 200);
+});
+
 test("configuration defaults and strict rejection", () => {
   assert.deepEqual(config("{}"), {
     enabled: true,
     hideRawCodemode: true,
     debug: false,
+    scratch: {
+      scratchBytes: 67108864,
+      successes: 4,
+      failures: 16,
+      revisions: 8,
+      ttlMs: 86400000,
+    },
+    cacheBytes: 33554432,
+    durableBytes: 67108864,
+    preferredFormat: "replace",
   });
   assert.equal(config('{"enabled":false}').enabled, false);
   for (const raw of [

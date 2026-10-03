@@ -7,11 +7,29 @@ import {
 import { Type, type Static } from "typebox";
 import { Check } from "typebox/value";
 import { config } from "./src/config.js";
+import { Fused, fusedSchema, editSchema, isFused } from "./src/fused.js";
+import { BranchIndex, durableBytes } from "./src/index-cache.js";
+import { applyIR, compileEdit, boundary } from "./src/edit.js";
 import { ENTRY, State, bytes, exact, revision, summary } from "./src/state.js";
 
 const name = Type.String({ pattern: "^[a-zA-Z0-9_-]{1,64}$" });
 const number = Type.Integer({ minimum: 1 });
 const actions = Type.Union([
+  fusedSchema,
+  Type.Object(
+    { action: Type.Literal("retire"), name },
+    { additionalProperties: false },
+  ),
+  Type.Object(
+    {
+      action: Type.Literal("patch"),
+      name,
+      baseRevision: number,
+      base: Type.String(),
+      edit: editSchema,
+    },
+    { additionalProperties: false },
+  ),
   Type.Object(
     { action: Type.Literal("create"), name, source: Type.String() },
     { additionalProperties: false },
@@ -50,10 +68,25 @@ const schema = Type.Unsafe<Static<typeof actions>>(
   Type.Object(
     {
       action: Type.Union(
-        ["create", "read", "patch", "run", "status"].map((a) =>
-          Type.Literal(a),
-        ),
+        [
+          "create",
+          "read",
+          "patch",
+          "run",
+          "status",
+          "exec",
+          "repair",
+          "readScratch",
+          "release",
+          "promote",
+          "retire",
+        ].map((a) => Type.Literal(a)),
       ),
+      ref: Type.Optional(Type.String()),
+      base: Type.Optional(Type.String()),
+      edit: Type.Optional(editSchema),
+      rerun: Type.Optional(Type.Literal("from-start")),
+      run: Type.Optional(Type.Boolean()),
       name: Type.Optional(name),
       source: Type.Optional(Type.String()),
       revision: Type.Optional(number),
@@ -69,7 +102,7 @@ const schema = Type.Unsafe<Static<typeof actions>>(
 const recovery =
   "Patch the existing buffer and rerun it; do not recreate the entire program. Rerunning repeats earlier side effects.";
 const description =
-  "Persistent CodeMode source. Create once, patch exact unique text against the current baseRevision, run an immutable revision. Syntax-invalid revisions never execute. Read uses zero-based UTF-16 character offset, at most 16000 characters. Status excludes source. After errors patch, do not regenerate. Scripts use Pi CodeMode globals (text, image, tools, models, searchTools, describeTool, describeNamespace, store/load).";
+  "Use exec(source); on failure repair(ref,base,edit) rather than regenerate. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?) returns bound ranges, max16000. Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
 const result = (data: unknown, isError = false) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
   details: undefined,
@@ -78,6 +111,8 @@ const result = (data: unknown, isError = false) => ({
 
 export default function codebuffer(pi: ExtensionAPI): void {
   const options = config();
+  const fused = new Fused(options.scratchDirectory, options.scratch);
+  const index = new BranchIndex(options.cacheBytes);
   if (!options.enabled) return;
   let prepared = false;
   let ready = false;
@@ -103,7 +138,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
   pi.registerTool({
     name: "codebuffer",
     label: "CodeBuffer",
-    description,
+    description: description + " Preferred format: " + options.preferredFormat,
     exposure: "model-only",
     executionMode: "sequential",
     parameters: schema,
@@ -118,6 +153,8 @@ export default function codebuffer(pi: ExtensionAPI): void {
         descriptions: {
           codebuffer:
             description +
+            " Preferred format: " +
+            options.preferredFormat +
             (contract
               ? "\nBuilt-in executor contract:\n" + contract
               : "\nUNAVAILABLE: enable Pi built-in codemode."),
@@ -136,33 +173,189 @@ export default function codebuffer(pi: ExtensionAPI): void {
           throw new Error(
             "INCOMPATIBLE_PI: requires Pi 1.0.0 built-in codemode, executeTool and prepareLoadout; hideRawCodemode:false is the declaration fallback",
           );
-        if (signal?.aborted) throw new Error("ABORTED");
+        if (
+          signal?.aborted &&
+          args.action !== "exec" &&
+          args.action !== "repair"
+        )
+          throw new Error("ABORTED");
         if (!Check(actions, args))
           throw new Error(
-            "INVALID_ARGUMENTS: create(name,source), read(name,revision?,offset?,limit?), patch(name,baseRevision,old,replacement), run(name,revision?), status(name?)",
+            "INVALID_ARGUMENTS: exec(source), repair(ref,base,edit,rerun?,run?), readScratch(ref,base?,offset?,limit?), release(ref), promote(ref,base,name), retire(name), create(name,source), read(name,revision?,offset?,limit?), patch(name,baseRevision,old,replacement), run(name,revision?), status(name?)",
           );
-        const state = new State(ctx.sessionManager.getBranch());
-        if (args.action === "status") return result(state.status(args.name));
+        const appendRevision = (r: ReturnType<typeof revision>) => {
+          if (
+            durableBytes(ctx.sessionManager.getEntries()) +
+              bytes(JSON.stringify(r)) >
+            options.durableBytes
+          )
+            throw new Error(
+              "DURABLE_QUOTA: session source budget reached; independent scratch exec remains available. History was not freed.",
+            );
+          pi.appendEntry(ENTRY, r);
+        };
+        if (isFused(args)) {
+          const { record: r, value, execute } = fused.prepare(args, ctx);
+          if (args.action === "readScratch")
+            return result(fused.read(r, args.base, args.offset, args.limit));
+          if (args.action === "release") {
+            fused.store.release(r);
+            return result({ ref: r.ref, retention: "released" });
+          }
+          if (args.action === "promote") {
+            if (value.metadata.id !== args.base)
+              throw new Error("STALE_REVISION");
+            const named = new State(ctx.sessionManager.getBranch());
+            if (named.buffers.has(args.name)) throw new Error("BUFFER_EXISTS");
+            if (named.active.size >= 64) throw new Error("BUFFER_LIMIT");
+            const durable = revision(args.name, value.source);
+            appendRevision(durable);
+            return result(summary({ metadata: durable, source: value.source }));
+          }
+          if (!execute || !value.metadata.syntax.valid)
+            return result(
+              fused.describe(r),
+              execute && !value.metadata.syntax.valid,
+            );
+          const base = value.metadata.id;
+          const previouslyDelegated = r.delegated;
+          r.execution = "running";
+          r.delegated = true;
+          const settle = () => {
+            try {
+              fused.store.update(r, base);
+              return undefined;
+            } catch (error) {
+              return error instanceof Error
+                ? error.message
+                : "Scratch settlement failed";
+            }
+          };
+          const startError = settle();
+          if (startError)
+            return result(
+              {
+                ...fused.describe(r),
+                storageError: startError,
+                retention: "recovery_required",
+              },
+              true,
+            );
+          authorizedParents.add(_id);
+          try {
+            if (signal?.aborted) {
+              r.execution = "interrupted";
+              r.delegated = previouslyDelegated;
+              const storageError = settle();
+              return result({ ...fused.describe(r), storageError }, true);
+            }
+            const outcome = await ctx.executeTool(
+              "codemode",
+              { code: value.source },
+              { signal, onUpdate },
+            );
+            r.execution = signal?.aborted
+              ? "interrupted"
+              : outcome.isError
+                ? "failed"
+                : "completed";
+            const storageError = settle();
+            return {
+              content: [
+                {
+                  type: "text" as const,
+                  text: JSON.stringify({
+                    ...fused.describe(r),
+                    ...(storageError
+                      ? { storageError, retention: "recovery_required" }
+                      : {}),
+                  }),
+                },
+                ...outcome.result.content,
+              ],
+              details: outcome.result.details,
+              isError: outcome.isError || !!signal?.aborted || !!storageError,
+            };
+          } catch (error) {
+            r.execution = "interrupted";
+            const storageError = settle();
+            return result(
+              {
+                ...fused.describe(r),
+                storageError,
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : "Execution interrupted",
+              },
+              true,
+            );
+          } finally {
+            authorizedParents.delete(_id);
+          }
+        }
+        const state = index.get(
+          ctx.sessionManager.getSessionId(),
+          ctx.sessionManager.getBranch(),
+        );
+        if (args.action === "status")
+          return result({
+            ...state.status(args.name),
+            cache: index.status(),
+            durableSourceBytes: durableBytes(ctx.sessionManager.getEntries()),
+            scratch:
+              process.platform === "win32"
+                ? { unavailable: "INCOMPATIBLE_SCRATCH_ACL" }
+                : fused.store.status(
+                    ctx.sessionManager.getSessionId(),
+                    new Set(ctx.sessionManager.getBranch().map((e) => e.id)),
+                  ),
+          });
+        if (args.action === "retire") {
+          state.get(args.name);
+          if (state.active.has(args.name))
+            pi.appendEntry(ENTRY, { kind: "retire", name: args.name });
+          return result({
+            name: args.name,
+            retention: "retired",
+            history: "preserved",
+          });
+        }
         if (args.action === "create") {
           if (state.buffers.has(args.name))
             throw new Error("BUFFER_EXISTS: patch the existing buffer");
-          if (state.buffers.size >= 64)
+          if (state.active.size >= 64)
             throw new Error("BUFFER_LIMIT: maximum 64 per branch");
           const r = revision(args.name, args.source);
-          pi.appendEntry(ENTRY, r);
+          appendRevision(r);
           return result(summary({ metadata: r, source: args.source }));
         }
         if (args.action === "patch") {
           try {
+            if (!state.active.has(args.name))
+              throw new Error(
+                "BUFFER_RETIRED: historical read/run remain available; create a new lineage name",
+              );
             const base = state.get(args.name);
             if (base.metadata.revision !== args.baseRevision)
               throw new Error(
                 "STALE_REVISION: current head is " + base.metadata.revision,
               );
-            const patch = { old: args.old, replacement: args.replacement };
-            const source = exact(base.source, patch.old, patch.replacement);
-            const r = revision(args.name, source, base, patch);
-            pi.appendEntry(ENTRY, r);
+            if ("edit" in args && args.base !== base.metadata.id)
+              throw new Error(
+                "STALE_REVISION: expected immutable base identity",
+              );
+            const ir =
+              "edit" in args ? compileEdit(base.source, args.edit) : undefined;
+            const patch =
+              "old" in args
+                ? { old: args.old, replacement: args.replacement }
+                : undefined;
+            const source = ir
+              ? applyIR(base.source, ir)
+              : exact(base.source, patch!.old, patch!.replacement);
+            const r = revision(args.name, source, base, patch, ir);
+            appendRevision(r);
             return result(summary({ metadata: r, source }));
           } catch (error) {
             pi.appendEntry(ENTRY, {
@@ -177,9 +370,17 @@ export default function codebuffer(pi: ExtensionAPI): void {
         buffer = args.name + "@" + r.metadata.revision;
         if (args.action === "read") {
           const offset = args.offset ?? 0;
-          const end = Math.min(r.source.length, offset + (args.limit ?? 4000));
+          if (!boundary(r.source, offset)) throw new Error("INVALID_RANGE");
+          let end = Math.min(r.source.length, offset + (args.limit ?? 4000));
+          if (!boundary(r.source, end)) end--;
+          if (end === offset && offset < r.source.length)
+            throw new Error(
+              "INVALID_RANGE: increase limit to include a complete Unicode character",
+            );
           return result({
             buffer,
+            base: r.metadata.id,
+            end,
             hash: r.metadata.hash,
             offset,
             source: r.source.slice(offset, end),
@@ -231,7 +432,21 @@ export default function codebuffer(pi: ExtensionAPI): void {
             buffer,
             status: "failed",
             error: error instanceof Error ? error.message : "CodeBuffer failed",
-            recovery,
+            ...(isFused(args)
+              ? {
+                  execution: "not_started",
+                  ...("ref" in args ? { ref: args.ref } : {}),
+                  ...("base" in args ? { requestedBase: args.base } : {}),
+                  recovery:
+                    error instanceof Error &&
+                    error.message.startsWith("STALE_REVISION")
+                      ? "readScratch(ref) for the current base; no edit was committed"
+                      : error instanceof Error &&
+                          error.message.startsWith("RERUN_ACK_REQUIRED")
+                        ? "Retry repair with rerun: from-start only if repeating prior effects is intended"
+                        : "No execution attempted; resolve the reported error before retrying",
+                }
+              : { recovery }),
           },
           true,
         );
@@ -274,16 +489,18 @@ export default function codebuffer(pi: ExtensionAPI): void {
       ctx.ui.notify("CodeBuffer ready; source logging disabled.", "info");
   });
   pi.registerCommand("codebuffer", {
-    description: "CodeBuffer status / inspect (metadata only)",
+    description: "CodeBuffer status / recover (read-only inspection)",
     handler: async (args, ctx) => {
-      if (!["", "status", "inspect", "list"].includes(args.trim())) {
-        ctx.ui.notify("Usage: /codebuffer [status|inspect|list]", "warning");
+      if (!["", "status", "inspect", "list", "recover"].includes(args.trim())) {
+        ctx.ui.notify("Usage: /codebuffer [status|recover]", "warning");
         return;
       }
       try {
         ctx.ui.notify(
           JSON.stringify(
-            new State(ctx.sessionManager.getBranch()).status(),
+            args.trim() === "recover"
+              ? fused.store.inspect()
+              : new State(ctx.sessionManager.getBranch()).status(),
             null,
             2,
           ),

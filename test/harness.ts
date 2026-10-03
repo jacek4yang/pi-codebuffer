@@ -22,6 +22,8 @@ import { getModel } from "@earendil-works/pi-ai/compat";
 export async function harness(
   options: {
     companion?: string;
+    generation?: string;
+    companionsFirst?: boolean;
     factories?: ExtensionFactory[];
     builtin?: boolean;
     extension?: boolean;
@@ -30,6 +32,7 @@ export async function harness(
 ) {
   const dir = mkdtempSync(join(tmpdir(), "codebuffer-sdk-"));
   const payloads: Record<string, unknown>[] = [];
+  const wire = { responseBytes: 0 };
   let queued: object | undefined;
   let toolName = "codebuffer";
   const server = createServer(async (req, res) => {
@@ -80,8 +83,11 @@ export async function harness(
             },
           ];
     res.writeHead(200, { "content-type": "text/event-stream" });
-    const send = (e: object) =>
-      res.write("data: " + JSON.stringify(e) + "\n\n");
+    const send = (e: object) => {
+      const chunk = "data: " + JSON.stringify(e) + "\n\n";
+      wire.responseBytes += Buffer.byteLength(chunk);
+      return res.write(chunk);
+    };
     if (!compact)
       output.forEach((item, output_index) =>
         send({
@@ -168,10 +174,19 @@ export async function harness(
       noThemes: true,
       noContextFiles: true,
       additionalExtensionPaths: [
+        ...(options.companionsFirst
+          ? [options.companion, options.generation].filter(
+              (p): p is string => !!p,
+            )
+          : []),
         ...(options.extension === false
           ? []
           : [process.env.PI_CODEBUFFER_TEST_EXTENSION ?? resolve("index.ts")]),
-        ...(options.companion ? [options.companion] : []),
+        ...(!options.companionsFirst
+          ? [options.companion, options.generation].filter(
+              (p): p is string => !!p,
+            )
+          : []),
       ],
       extensionFactories: [
         ...(options.builtin === false
@@ -181,7 +196,22 @@ export async function harness(
       ],
       systemPrompt: "Local deterministic extension test.",
     });
-    await loader.reload();
+    const previousConfig = process.env.PI_CODEBUFFER;
+    const previousRecovery = process.env.PI_GENERATION_RECOVERY_DIR;
+    process.env.PI_GENERATION_RECOVERY_DIR = join(dir, "generation");
+    process.env.PI_CODEBUFFER = JSON.stringify({
+      ...JSON.parse(previousConfig ?? "{}"),
+      scratchDirectory: join(dir, "scratch"),
+    });
+    try {
+      await loader.reload();
+    } finally {
+      if (previousRecovery === undefined)
+        delete process.env.PI_GENERATION_RECOVERY_DIR;
+      else process.env.PI_GENERATION_RECOVERY_DIR = previousRecovery;
+      if (previousConfig === undefined) delete process.env.PI_CODEBUFFER;
+      else process.env.PI_CODEBUFFER = previousConfig;
+    }
     assert.deepEqual(loader.getExtensions().errors, []);
     const { session } = await createAgentSession({
       cwd: dir,
@@ -224,6 +254,7 @@ export async function harness(
   return {
     dir,
     payloads,
+    wire,
     make,
     call,
     async close() {

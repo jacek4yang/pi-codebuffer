@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Add one-call exec/repair, explicit rerun acknowledgement, private bounded scratch retention and promotion/release.
+- Add shared versioned splice IR, exact batches, revision-bound ranges and strict Codex-style buffer patches; export pure multi-text planning.
+- Preserve v1 reading; add branch-prefix caching, bounded source cache, periodic verified source snapshots, named retirement and durable growth quotas.
+- Test stress, cancellation, crash-owner retention, partial external effects, isolated packages and both companion load orders. Add byte-envelope protocol benchmark.
+- Stabilize 1,024-record scratch lookup with a bounded, verified metadata index; eliminate quadratic legacy revision-ID checks and redundant canonical-history accounting. Add 50k-event regression and saturation measurements.
+- Add read-only `/codebuffer recover`, compact scratch result metadata and contextual repair errors.
+- Scope is source-level editing/execution, not workspace transactions. Linux private scratch is supported; Windows scratch ACLs fail closed. See docs/ACCEPTANCE.md.
+
 ## 0.1.0
 
 - Add one CodeBuffer tool for create, read, exact patch, run and metadata status.

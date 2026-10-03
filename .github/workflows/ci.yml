@@ -10,6 +10,18 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  windows-boundary:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: npm exec -- tsx --test test/state.test.ts test/sdk.test.ts test/windows.ts
   verify:
     name: verify
     runs-on: ubuntu-latest
@@ -26,12 +38,12 @@ jobs:
       - run: npm run check
       - run: npm run format:check
       - run: npm pack --json > pack-result.json
-      - name: Isolated packaged SDK regressions and native-compaction coexistence
-        run: npm run smoke:install -- pi-codebuffer-0.1.0.tgz
+      - name: Isolated packaged SDK regressions and companion coexistence
+        run: npm run smoke:install
       - name: Runtime-only installation (Git-style dependency layout)
         run: |
           runtime="$(mktemp -d)"
-          npm install --prefix "$runtime" --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund ./pi-codebuffer-0.1.0.tgz
+          npm install --prefix "$runtime" --omit=dev --legacy-peer-deps --ignore-scripts --no-audit --no-fund ./pi-codebuffer-*.tgz
           npm run smoke:install -- --installed "$runtime/node_modules/pi-codebuffer"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
