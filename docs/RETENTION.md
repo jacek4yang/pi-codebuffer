@@ -3,8 +3,8 @@
 | Resource                                 |  Default | Accounting                                             |
 | ---------------------------------------- | -------: | ------------------------------------------------------ |
 | One revision                             |  256 KiB | UTF-8 source, rejected not truncated                   |
-| Named buffers                            |       64 | Branch-local named histories; legacy limit             |
-| Retained source/index cache              |   32 MiB | Accounted UTF-8/serialized metadata, not RSS           |
+| Named buffers                            |       64 | Branch-local active named buffers                      |
+| Retained source/index cache              |   32 MiB | Accounted source/derived metadata, not RSS             |
 | Aggregate scratch store                  |   64 MiB | Serialized logical bytes with replacement reservations |
 | Recent successes                         |        4 | Per session                                            |
 | Retained failures/drafts/running handles |       16 | Per session, active leases protected                   |
@@ -18,7 +18,9 @@ Eviction prefers successful handles, then eligible old failed handles. Running s
 
 `promote` copies a selected scratch revision into a new named durable buffer, subject to named and durable quotas. `release` removes eligible scratch payloads; it cannot retire named histories or rewrite transcript arguments. Pinning does not bypass quotas. `retire(name)` frees the active named slot and its current source cache, not historical entries. Retired names cannot be silently reused or patched; historical read/run remains explicit. New chains include verified source snapshots every 64 revisions.
 
-Old v1 sessions stay readable; their entries are not migrated or compacted. New named IR revisions coexist with v1 exact deltas in this candidate. Older v0.1.0 cannot read the new IR records: use a copied session for evaluation, and keep this candidate available when reopening sessions written with new formats. Legacy exact-only histories remain backward-compatible.
+Scratch scans retain at most 1,024 metadata entries (bounded session/anchor strings), never source payloads. File identity/mode/size/nanosecond timestamps are checked on each scan; changed records are parsed and hash-verified. Selected repair/read targets are always verified from canonical files. The index is rebuilt on restart; `indexBytes` is serialized logical metadata, not RSS. Unknown record fields are not retained in the index.
+
+Old v1 sessions stay readable; their entries are not migrated or compacted. New named IR revisions coexist with v1 exact deltas in 0.2.0. Older v0.1.0 cannot read the new IR records: back up sessions before upgrading, and keep 0.2.0 available when reopening sessions written with new formats. Legacy exact-only histories remain backward-compatible.
 
 Do not delete recovery evidence to satisfy a quota. When protected sources fill capacity, wait for in-flight work, explicitly release completed/failed references, or adjust bounded configuration deliberately. Durable quota failure leaves independent scratch work available.
 

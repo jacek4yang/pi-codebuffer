@@ -2,19 +2,7 @@
 
 Revisioned source editing in front of Pi's **original CodeMode executor**. No replacement VM, provider, replay engine, or telemetry.
 
-## Candidate status
-
-`0.2.0-alpha.1` is a source-workflow candidate, not a stable release. Tested locally with Pi **1.0.0**, Node **24.21.0**, Linux. Windows scratch execution fails closed because this implementation cannot establish equivalent private ACLs. Legacy named buffers remain available. See [acceptance gaps](docs/ACCEPTANCE.md) before installing. The requested policy-equivalent workspace transaction backend is **not implemented**; the exported multi-text planner performs no filesystem mutation.
-
-Stable installation remains `pi install git:github.com/jacek4yang/pi-codebuffer@v0.1.0`. For isolated evaluation of this branch:
-
-```sh
-PI_CODING_AGENT_DIR=/absolute/temporary/pi-home pi install git:github.com/jacek4yang/pi-codebuffer@feat/daily-use-codebuffer
-```
-
-Do not replace an active installation while testing a candidate. No npm publication.
-
-## One call, then a small repair
+## Recommended workflow: exec → success, or repair → rerun
 
 Model-facing `codebuffer` calls (not JavaScript globals):
 
@@ -41,7 +29,27 @@ The failure returns `ref` and `base` (full immutable UUID), syntax/execution sta
 
 No name or durable slot is needed for `exec`. Successful scratch handles are automatically reduced to a small recent window. Failed handles persist privately while retained. Use `readScratch` for bounded UTF-16 ranges, `release` to retire scratch, `retire(name)` to free a named active slot without deleting history, and `promote(ref,base,name)` to create durable named source before expiry. `status` lists retained references on the current branch, including interrupted work whose response was lost.
 
-Legacy `create/read/patch/run/status` remain supported. New named `patch` can use `baseRevision`, immutable `base`, and `edit`; old `old/replacement` still works. `/codebuffer status|inspect|list` remains metadata-only. The outer orchestrator is non-reentrant; do not call it from CodeMode.
+Legacy `create/read/patch/run/status` remain supported. New named `patch` can use `baseRevision`, immutable `base`, and `edit`; old `old/replacement` still works. `/codebuffer status` is metadata-only. `/codebuffer recover` inspects scratch ownership, locks and hashes without deleting evidence. The outer orchestrator is non-reentrant; do not call it from CodeMode.
+
+## Install, platforms and rollback
+
+```sh
+pi install git:github.com/jacek4yang/pi-codebuffer@v0.2.0
+# Roll back the package (not external effects):
+pi install git:github.com/jacek4yang/pi-codebuffer@v0.1.0
+```
+
+Reload Pi after changing the installed version. To evaluate separately, prefix the install command with `PI_CODING_AGENT_DIR=/absolute/temporary/pi-home`. No npm publication.
+
+Supported baseline: **Pi 1.0.0, Node 24.x, local Linux filesystem** (development Node 24.21.0). Windows CI verifies legacy named buffers and scratch refusal only: `exec/repair` private scratch persistence is **unsupported/fail-closed** there. Network/shared-host stores are unsupported.
+
+Back up sessions before upgrading. v0.1.0 cannot reconstruct newer named IR records; reopen those sessions with v0.2.0, or use an older session copy after rollback. Scratch cleanup neither removes transcript arguments nor rolls back external tool effects.
+
+## Scope
+
+CodeBuffer owns CodeMode source lifecycle, immutable source editing, execution/repair, bounded scratch retention and reusable **pure** editing primitives. A complete source edit commits one revision or none; syntax-invalid drafts remain repairable. This is not atomicity or rollback of tools invoked by the source.
+
+Workspace file transactions, Git/build/package workflows, process management and general engineering orchestration belong to future **pi-workflow**, not this package. Pi 1.0.0 has no inspected public API providing policy-equivalent authorization plus file-mutation coordination; no private-API bypass is used. The multi-text planner never writes files.
 
 ## Editing and retention
 

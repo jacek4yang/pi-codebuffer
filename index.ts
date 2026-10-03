@@ -102,7 +102,7 @@ const schema = Type.Unsafe<Static<typeof actions>>(
 const recovery =
   "Patch the existing buffer and rerun it; do not recreate the entire program. Rerunning repeats earlier side effects.";
 const description =
-  "Prefer exec(source) for one-call scratch execution; repair(ref,base,edit,rerun?:from-start) edits and runs in one call. Edits: replace {edits:[{old,replacement}]}, range {edits:[{start,end,text}]} (UTF-16), apply_patch {patch} with virtual Update File: buffer. readScratch returns revision-bound ranges. release retires scratch; promote(ref,base,name) creates durable source. Scratch success is bounded, failures expire; reruns start over. Persistent CodeMode source. Create once, patch exact unique text against the current baseRevision, run an immutable revision. Syntax-invalid revisions never execute. Read uses zero-based UTF-16 character offset, at most 16000 characters. Status excludes source. After errors patch, do not regenerate. Scripts use Pi CodeMode globals (text, image, tools, models, searchTools, describeTool, describeNamespace, store/load).";
+  "Use exec(source); on failure repair(ref,base,edit) rather than regenerate. repair runs from the beginning: after delegation require rerun:from-start; run:false edits only. edit formats: replace {edits:[{old,replacement,count?}]}, range {edits:[{start,end,text}]} (UTF-16 half-open), apply_patch {patch} (Codex envelope, virtual Update File: buffer). readScratch(ref,base?,offset?,limit?) returns bound ranges, max16000. Scratch expires; promote(ref,base,name) preserves durable source; release(ref) frees scratch. Legacy create/read/patch/run/status and retire(name) remain. Invalid syntax never executes. Outer orchestrator is not callable from CodeMode.";
 const result = (data: unknown, isError = false) => ({
   content: [{ type: "text" as const, text: JSON.stringify(data) }],
   details: undefined,
@@ -432,7 +432,21 @@ export default function codebuffer(pi: ExtensionAPI): void {
             buffer,
             status: "failed",
             error: error instanceof Error ? error.message : "CodeBuffer failed",
-            recovery,
+            ...(isFused(args)
+              ? {
+                  execution: "not_started",
+                  ...("ref" in args ? { ref: args.ref } : {}),
+                  ...("base" in args ? { requestedBase: args.base } : {}),
+                  recovery:
+                    error instanceof Error &&
+                    error.message.startsWith("STALE_REVISION")
+                      ? "readScratch(ref) for the current base; no edit was committed"
+                      : error instanceof Error &&
+                          error.message.startsWith("RERUN_ACK_REQUIRED")
+                        ? "Retry repair with rerun: from-start only if repeating prior effects is intended"
+                        : "No execution attempted; resolve the reported error before retrying",
+                }
+              : { recovery }),
           },
           true,
         );
@@ -475,16 +489,18 @@ export default function codebuffer(pi: ExtensionAPI): void {
       ctx.ui.notify("CodeBuffer ready; source logging disabled.", "info");
   });
   pi.registerCommand("codebuffer", {
-    description: "CodeBuffer status / inspect (metadata only)",
+    description: "CodeBuffer status / recover (read-only inspection)",
     handler: async (args, ctx) => {
-      if (!["", "status", "inspect", "list"].includes(args.trim())) {
-        ctx.ui.notify("Usage: /codebuffer [status|inspect|list]", "warning");
+      if (!["", "status", "inspect", "list", "recover"].includes(args.trim())) {
+        ctx.ui.notify("Usage: /codebuffer [status|recover]", "warning");
         return;
       }
       try {
         ctx.ui.notify(
           JSON.stringify(
-            new State(ctx.sessionManager.getBranch()).status(),
+            args.trim() === "recover"
+              ? fused.store.inspect()
+              : new State(ctx.sessionManager.getBranch()).status(),
             null,
             2,
           ),

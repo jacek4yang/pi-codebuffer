@@ -149,6 +149,13 @@ test("real SDK fused syntax repair and acknowledged runtime repair; scratch neve
     assert.equal(bad.isError, true, textOf(bad));
     assert.equal(calls, 0);
     const metadata = jsonOf(bad);
+    assert.deepEqual(metadata.recovery, { action: "repair" });
+    assert.equal(metadata.effects, "not_started");
+    assert.equal(
+      metadata.id,
+      undefined,
+      "base is the sole scratch revision identity",
+    );
     const repair = {
       action: "repair",
       ref: metadata.ref,
@@ -159,7 +166,11 @@ test("real SDK fused syntax repair and acknowledged runtime repair; scratch neve
     assert.equal(fixed.isError, false, textOf(fixed));
     assert.equal(calls, 1);
     assert.match(textOf(fixed), /42/);
-    assert.equal((await h.call(s, repair)).isError, true);
+    const stale = await h.call(s, repair);
+    assert.equal(stale.isError, true);
+    assert.equal(jsonOf(stale).execution, "not_started");
+    assert.equal(jsonOf(stale).requestedBase, metadata.base);
+    assert.match(String(jsonOf(stale).recovery), /readScratch/);
     assert.equal(calls, 1);
     const runtime = await h.call(s, {
       action: "exec",
@@ -167,6 +178,7 @@ test("real SDK fused syntax repair and acknowledged runtime repair; scratch neve
     });
     const r = jsonOf(runtime);
     assert.equal(runtime.isError, true);
+    assert.deepEqual(r.recovery, { action: "repair", rerun: "from-start" });
     assert.equal(calls, 2);
     const request = {
       action: "repair",

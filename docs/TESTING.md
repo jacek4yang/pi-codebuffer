@@ -1,6 +1,6 @@
 # Testing
 
-Baseline inspected: e46b4b33e592b7ff5bc8681399937646ce6d1cb3 (v0.1.0), Pi 1.0.0, Node 24.21.0. Candidate validation uses the pinned released Pi SDK, original QuickJS executor and local deterministic HTTP/SSE providers. No paid/real provider quota is consumed. TypeScript/ESLint are the configured gates; no TypeScript LSP server is configured in the development workspace.
+Baseline inspected: e46b4b33e592b7ff5bc8681399937646ce6d1cb3 (v0.1.0), Pi 1.0.0, Node 24.21.0. Stabilization began at bbf8b9f90f9ec13ad272401558f1d52af6012248. Release validation uses the pinned released Pi SDK, original QuickJS executor and local deterministic HTTP/SSE providers. No paid/real provider quota is consumed. TypeScript/ESLint are the configured gates; no TypeScript LSP server is configured in the development workspace.
 
 ```sh
 npm ci --no-audit --no-fund
@@ -9,6 +9,7 @@ npm run format:check
 npm pack --json
 npm run smoke:install
 npm run benchmark -- /tmp/codebuffer-benchmark.json
+npm exec -- tsx scripts/saturation.ts /tmp/codebuffer-saturation.json
 ```
 
 The smoke script installs the tarball plus pinned Pi 1.0.0 and companion development fixtures in an isolated temporary directory. It loads the packaged root entry, links the installed source rather than copying it out of dependency scope, and runs the same real-SDK cases. `--installed /absolute/path` tests a separately installed runtime-only/Git checkout. No active Pi home/settings are changed.
@@ -19,4 +20,4 @@ Coverage includes v1 compatibility, original executor options, hidden declaratio
 
 README examples run through the real schema. CI uses Linux for full/packaged behavior and a Windows boundary job for legacy SDK plus explicit no-write scratch refusal. Windows scratch and workspace transactions are not verified support.
 
-No transaction rollback/kill-mid-file-commit tests are claimed: that backend is absent. See ACCEPTANCE.md for remaining blockers instead of interpreting passing tests as complete acceptance.
+No transaction rollback/kill-mid-file-commit tests are claimed: that backend is absent. See ACCEPTANCE.md for the stable scope and remaining limitations. Saturation covers 1,024 records; legacy-history regressions cover 50k events with sibling navigation and restart. Recovery inspection is tested with live, dead and incomplete locks and pending evidence.

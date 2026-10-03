@@ -100,6 +100,7 @@ export function revision(
 export class State {
   buffers = new Map<string, Materialized[]>();
   active = new Set<string>();
+  private revisionIds = new Set<string>();
   private sources = new Map<string, string>();
   cacheBytes = 0;
   private retain(id: string, source: string): void {
@@ -246,7 +247,7 @@ export class State {
       bytes(source) > MAX_SOURCE ||
       hash(source) !== e.hash ||
       JSON.stringify(syntax(source)) !== JSON.stringify(e.syntax) ||
-      chain.some((r) => r.metadata.id === e.id)
+      this.revisionIds.has(e.id)
     )
       throw new Error();
     if (
@@ -254,6 +255,7 @@ export class State {
       (e.snapshot.source !== source || e.snapshot.hash !== e.hash)
     )
       throw new Error("STATE_CORRUPT: snapshot");
+    this.revisionIds.add(e.id);
     if (!previous) this.active.add(e.name);
     const position = chain.length;
     const materialize = () => this.materialize(chain, position);

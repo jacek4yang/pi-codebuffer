@@ -56,7 +56,7 @@ const plan = compileTextPatchSet(
 // No writes have happened. A malformed later operation returns no plan.
 ```
 
-There is deliberately **no commit(plan)** backend in this candidate. It cannot demonstrate the requested safe multi-file commit/rollback because the policy-equivalence blocker is unresolved. Do not implement a callback that performs writes during planning or treat these lexical paths/hashes as observed filesystem identities. No Node import or global facade is added inside CodeMode.
+There is deliberately **no commit(plan)** backend. Workspace commit/rollback is outside the stable source-lifecycle scope; Pi 1.0.0 has no inspected public API providing equivalent authorization and mutation coordination. Do not implement a callback that performs writes during planning or treat these lexical paths/hashes as observed filesystem identities. No Node import or global facade is added inside CodeMode.
 
 ## Expired references
 

@@ -14,6 +14,8 @@ A branch-prefix index reuses only identical entry ancestry within the same sessi
 
 `exec` allocates an independent scratch lineage in a private plugin store, not a named slot or new full-source custom entry. Submitted source is retained before delegation. The store serializes cooperating operations with a private lock and atomically replaces a JSON record containing at most eight source snapshots. These are **source** snapshots, never execution checkpoints. A repair creates a UUID revision and splice provenance. Source/hash identity is pinned before awaiting CodeMode.
 
+A metadata-only scratch index checks file signatures on every scan and validates changed payloads. It holds no source strings; canonical per-record files remain authoritative. Reopen rebuilds the index; selected reads/repairs still hash-verify source. Duplicate legacy UUID checks use a set; derived index accounting does not count Pi-owned canonical payloads as copies.
+
 A quota reservation includes twice the serialized record size plus settlement headroom for atomic replacement. Running sources cannot be evicted. Terminal success is eligible for the recent-success window; syntax failures, runtime failures and interrupted work are retained under the failed-handle policy. Dead owner PIDs are treated as interrupted, not resumed. The same process never automatically replays anything.
 
 ## Editing boundary
@@ -22,6 +24,6 @@ A quota reservation includes twice the serialized record size plus settlement he
 
 Buffer patches accept only virtual `Update File: buffer`; unexpected paths cannot become filesystem writes. `compileTextPatchSet` is an offline, pure multi-text planner for explicit supplied snapshots, with add/delete/move expressed as creation/deletion/splices. It is **not a workspace backend**, does not observe actual filesystem identities, and cannot authorize or commit files. No mixed transaction is supported.
 
-## Workspace capability blocker
+## Workspace non-goal
 
-Pi 1.0.0 publicly exposes policy-visible tool calls, but not a side-effect-free authorization decision equivalent to every policy guarding built-in `edit/write`, nor a general cooperating file-mutation queue. A new tool name would not inherit name-specific policy denials. Calling the existing writer to a staging path would authorize the wrong target. Host `fs` renames after such a check would bypass that policy. This candidate deliberately exposes no mutating workspace tool instead of weakening that boundary. See ACCEPTANCE.md.
+Pi 1.0.0 publicly exposes policy-visible tool calls, but not a side-effect-free authorization decision equivalent to every policy guarding built-in `edit/write`, nor a general cooperating file-mutation queue. A new tool name would not inherit name-specific policy denials. Calling the existing writer to a staging path would authorize the wrong target. Host `fs` renames after such a check would bypass that policy. CodeBuffer deliberately exposes no mutating workspace tool instead of weakening that boundary. See ACCEPTANCE.md.

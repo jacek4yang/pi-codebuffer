@@ -119,6 +119,9 @@ try {
       "test/effects.test.ts",
       "test/examples.test.ts",
       "test/storage-encoding.test.ts",
+      "test/legacy-scale.test.ts",
+      "test/scratch-index.test.ts",
+      "test/recovery.test.ts",
     ],
     {
       cwd: target,

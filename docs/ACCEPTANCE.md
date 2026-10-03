@@ -1,15 +1,26 @@
-# Candidate acceptance and blockers
+# 0.2.0 acceptance record
 
-This branch is **not yet the full requested daily-use release-ready successor**. It preserves a tested source-workflow improvement without inventing unavailable guarantees. Do not tag/merge/release it as a completed workspace-transaction product.
+Scope: Linux CodeMode **source** lifecycle, immutable editing, fused execution/repair, bounded private scratch retention and pure editing exports. This is not a workspace-transaction product.
 
-Implemented: fused exec/repair, acknowledgement before replaying effects, private retained scratch source, bounded successful handle window, quota reservations, immutable IR revisions, exact/range/strict Codex-style frontends, pure public planning API, v1 reading, branch-prefix cache, isolated real-SDK tests and companion coexistence.
+## Verification
 
-Blocking or incomplete requirements:
+Stabilization started from `bbf8b9f90f9ec13ad272401558f1d52af6012248` (0.2.0-alpha.1); previous stable is `e46b4b33e592b7ff5bc8681399937646ce6d1cb3` (v0.1.0). Pi 1.0.0 and Node 24.21.0 were rechecked locally. Release commit/checksums and CI links belong to the GitHub release, avoiding a self-referential commit hash here.
 
-1. **Workspace backend:** Pi 1.0.0 lacks the inspected public authorization-only/file-queue surface needed to preserve existing name-specific built-in edit/write policies while staging atomic replacements. No host workspace writes are exposed. Therefore transactional rollback, durable file journals, mid-commit process termination, guarded external-writer recovery and their fault-injection matrix are not implemented. A pure multi-text plan is not a substitute.
-2. **Windows private scratch ACLs:** fail-closed boundary only; no Windows scratch support claim. Local Linux behavior is tested; CI separately checks the Windows refusal and legacy SDK behavior.
-3. **History/index worst-case bounds:** retained caches are bounded, but a very large old branch can incur a linear rebuild and temporary metadata allocations. New histories have verified source snapshots every 64 revisions and named retirement. Old v1 chains still have no bounded reconstruction depth before their first new snapshot; transient metadata during a full rebuild is not strictly bounded by the retained-cache counter.
-4. **Scratch crash settlement:** hard-killed owners retain source and never replay. Ambiguous lock/staging leftovers fail closed for manual investigation, rather than an automatic recovery command. Logical storage accounting is not allocated filesystem blocks or RSS.
-5. **Benchmark scope:** deterministic local provider, actual released SDK/QuickJS, protocol replay on the same candidate. No paid provider, tokenizer or billing claim.
+- TypeScript, ESLint, formatting and 34 local tests passed; isolated packaged installation passed 37 tests including both companion load orders. No tests were removed or disabled.
+- Real SDK tests preserve the original bound CodeMode executor/options, permission denials, streaming/images, cancellation and accounting. Syntax rejection does not execute; stale or malformed edits do not create revisions.
+- Isolated tarball and Git-style installs run the registered extension against the original SDK, not only pure-kernel calls. Both pinned companion load orders cover checkpoint, restart and scratch repair without owning provider/retry state.
+- Stress includes 200 native SDK snippets, 1,000 independent store lineages, 1,024 simultaneous records across 32 sessions, protected quota pressure, repeated repair, expiry, corruption and restart.
+- 10k/50k legacy histories measure first/cached reconstruction, navigation and restart; regressions prevent quadratic duplicate checking and canonical-source double-accounting.
+- Windows CI verifies the explicit legacy/refusal boundary, not scratch execution.
+- Protocol replay and saturation measurements are reported separately from real-agent observations in BENCHMARK.md and DOGFOOD.md.
 
-The package is installable for isolated evaluation. These limitations are not waived by passing tests.
+## Remaining limitations (not hidden acceptance waivers)
+
+1. Workspace mutations, transactional rollback and general engineering orchestration are non-goals. The Pi 1.0.0 public API was rechecked: no equivalent authorization-only/mutation queue API is available. Pure multi-text planning performs no host writes.
+2. Private scratch persistence is Linux-supported. Windows fails closed; mode bits do not establish private ACLs. No network filesystem or cross-host store support.
+3. Cache counters bound retained logical data, not peak reconstruction memory or Pi transcript/RSS. A very large old branch still requires linear verification; history exceeding the retained index budget can rebuild on later access. History is never rewritten.
+4. Dead execution owners never resume automatically. Ambiguous lock/staging evidence blocks operations. `/codebuffer recover` is read-only: stop owners, preserve a private backup and investigate before manual cleanup. It does not prove a PID belongs to the original process.
+5. Per-record atomic rename is not cross-platform power-loss durability. Logical quota accounting is not allocated filesystem blocks.
+6. Local deterministic bytes/call counts are not tokens, billing savings, or measured improvements in model intelligence.
+
+Publication is gated by the exact release commit passing protected CI and isolated installation; a local green suite alone does not constitute publication.

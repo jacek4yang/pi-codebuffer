@@ -36,7 +36,10 @@ export class BranchIndex {
         this.state.apply(e.data);
         this.reconstructionMs += performance.now() - started;
         this.ids.push(e.id);
-        this.retained += bytes(JSON.stringify(e)) + 64;
+        // Canonical entry payloads belong to Pi; the index retains references,
+        // IDs, closures and sets, not another serialized source history.
+        // Conservative logical accounting, not a claim about V8 heap/RSS.
+        this.retained += bytes(e.id) + 256;
         const r = e.data as Revision;
         if (r.kind === "revision") {
           this.reconstructions++;

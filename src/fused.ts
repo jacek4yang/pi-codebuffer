@@ -7,7 +7,7 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { ScratchStore, type Scratch } from "./scratch.js";
 import { boundary } from "./edit.js";
-import { syntax, summary, type Materialized } from "./state.js";
+import { syntax, bytes, type Materialized } from "./state.js";
 const exact = Type.Object(
   {
     old: Type.String({ minLength: 1 }),
@@ -142,14 +142,18 @@ export class Fused {
     return {
       ref: r.ref,
       base: v.metadata.id,
-      ...summary(v),
+      revision: v.metadata.revision,
+      hash: v.metadata.hash,
+      sourceBytes: bytes(v.source),
+      syntax: v.metadata.syntax,
       execution: r.execution,
       effects: r.delegated ? "unknown" : "not_started",
       retention: r.execution === "completed" ? "recent_success" : "retained",
       ...(r.execution !== "completed"
         ? {
-            recovery:
-              "Repair this reference and base; after delegation acknowledge rerun: from-start. Promote before expiry for durable retention.",
+            recovery: r.delegated
+              ? { action: "repair", rerun: "from-start" }
+              : { action: "repair" },
           }
         : {}),
     };
