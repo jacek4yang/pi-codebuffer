@@ -13,7 +13,8 @@ npm run smoke:install -- pi-codebuffer-0.1.0.tgz
 `check` includes strict TypeScript, ESLint and unit/real-SDK tests.
 The isolated smoke installs the actual tarball, pinned Pi 1.0.0 and released
 native-compaction v0.3.1 outside this checkout, then copies only regression tests
-and installed state code into that directory. Execution uses installed extension
+and links installed state code into that directory, preserving its runtime
+dependency resolution. CI also tests a runtime-only (Git-style) install layout. Execution uses installed extension
 files and installed dependencies, not the repository's node_modules.
 
 The companion tarball is fetched from its GitHub release and checked against
