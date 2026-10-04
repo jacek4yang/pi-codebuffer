@@ -53,7 +53,7 @@ pi install git:github.com/jacek4yang/pi-codebuffer@v0.1.0
 
 Reload Pi after changing the installed version. To evaluate separately, prefix the install command with `PI_CODING_AGENT_DIR=/absolute/temporary/pi-home`. No npm publication.
 
-Supported baseline: **Pi 1.0.1, Node 24.x, local Linux filesystem** (development Node 24.21.0). Windows CI verifies legacy named buffers and scratch refusal only: `exec/repair` private scratch persistence is **unsupported/fail-closed** there. Network/shared-host stores are unsupported.
+Supported baseline: **Pi 1.0.2, Node 24.x, local Linux filesystem** (development Node 24.21.0). Windows CI verifies legacy named buffers and scratch refusal only: `exec/repair` private scratch persistence is **unsupported/fail-closed** there. Network/shared-host stores are unsupported.
 
 Back up sessions before upgrading. v0.1.0 cannot reconstruct newer named IR records; reopen those sessions with v0.2.0, or use an older session copy after rollback. Scratch cleanup neither removes transcript arguments nor rolls back external tool effects.
 

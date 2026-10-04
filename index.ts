@@ -134,7 +134,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
   let originalExecutor:
     ToolLoadout["registered"][number]["execute"] | undefined;
   const authorizedParents = new Set<string>();
-  // Pi 1.0.1 marks CodeMode model-only. Re-register its PUBLIC factory's
+  // Pi 1.0.2 marks CodeMode model-only. Re-register its PUBLIC factory's
   // unchanged executor with callable exposure, never a copied implementation.
   pi.on("tool_call", (event) => {
     if (
@@ -200,7 +200,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
           !ctx.tools.some((t) => t.name === "codemode")
         )
           throw new Error(
-            "INCOMPATIBLE_PI: requires Pi 1.0.1 built-in codemode, executeTool and prepareLoadout; hideRawCodemode:false is the declaration fallback",
+            "INCOMPATIBLE_PI: requires Pi 1.0.2 built-in codemode, executeTool and prepareLoadout; hideRawCodemode:false is the declaration fallback",
           );
         if (
           signal?.aborted &&
@@ -495,7 +495,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
       !originalExecutor
     ) {
       ctx.ui.notify(
-        "CodeBuffer unavailable: requires Pi 1.0.1 built-in codemode and prepareLoadout. Enable CodeMode or upgrade Pi.",
+        "CodeBuffer unavailable: requires Pi 1.0.2 built-in codemode and prepareLoadout. Enable CodeMode or upgrade Pi.",
         "error",
       );
       return;
