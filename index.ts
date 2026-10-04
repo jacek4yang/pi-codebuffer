@@ -7,6 +7,7 @@ import {
 import { Type, type Static } from "typebox";
 import { Check } from "typebox/value";
 import { config } from "./src/config.js";
+import { registerRuntime } from "./src/runtime/register.js";
 import { Fused, fusedSchema, editSchema, isFused } from "./src/fused.js";
 import { BranchIndex, durableBytes } from "./src/index-cache.js";
 import { applyIR, compileEdit, boundary } from "./src/edit.js";
@@ -149,7 +150,7 @@ export default function codebuffer(pi: ExtensionAPI): void {
       };
     }
   });
-  pi.registerTool({
+  const definition: ToolDefinition<typeof schema> = {
     name: "codebuffer",
     label: "CodeBuffer",
     description: description + " Preferred format: " + options.preferredFormat,
@@ -487,7 +488,8 @@ export default function codebuffer(pi: ExtensionAPI): void {
         );
       }
     },
-  });
+  };
+  pi.registerTool(definition);
   pi.on("session_start", (_event, ctx) => {
     ready = false;
     if (
@@ -549,4 +551,5 @@ export default function codebuffer(pi: ExtensionAPI): void {
       }
     },
   });
+  if (options.unified) registerRuntime(pi, definition, fused);
 }

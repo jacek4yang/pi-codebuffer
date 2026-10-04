@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { isAlive, type ProcessIdentity } from "./runtime/job-journal.js";
 import {
   mkdirSync,
   existsSync,
@@ -32,11 +33,13 @@ export type Execution =
   "not_started" | "running" | "completed" | "failed" | "interrupted";
 export interface Scratch {
   version: 1;
+  language?: "python" | "node" | "bash";
   ref: string;
   session: string;
   anchor: string | null;
   updated: number;
   pid: number;
+  process?: ProcessIdentity;
   execution: Execution;
   delegated: boolean;
   revisions: Materialized[];
@@ -48,11 +51,13 @@ type RecordInfo = Omit<Scratch, "revisions"> & {
 function recordInfo(r: Scratch, diskBytes: number): RecordInfo {
   return {
     version: r.version,
+    ...(r.language ? { language: r.language } : {}),
     ref: r.ref,
     session: r.session,
     anchor: r.anchor,
     updated: r.updated,
     pid: r.pid,
+    ...(r.process ? { process: { ...r.process } } : {}),
     execution: r.execution,
     delegated: r.delegated,
     base: r.revisions.at(-1)!.metadata.id,
@@ -200,7 +205,11 @@ export class ScratchStore {
         this.index.set(r.ref, cached);
       }
       const info = { ...cached.info };
-      if (info.execution === "running" && !alive(info.pid))
+      if (
+        info.execution === "running" &&
+        !alive(info.pid) &&
+        !isAlive(info.process)
+      )
         info.execution = "interrupted";
       records.push(info);
     }
@@ -221,12 +230,20 @@ export class ScratchStore {
     if (
       !r ||
       r.version !== 1 ||
+      (r.language !== undefined &&
+        !["python", "node", "bash"].includes(r.language)) ||
       ref !== r.ref ||
       typeof r.session !== "string" ||
       r.session.length > 4096 ||
       (r.anchor !== null &&
         (typeof r.anchor !== "string" || r.anchor.length > 4096)) ||
       !Number.isFinite(r.updated) ||
+      (r.process !== undefined &&
+        (!r.process ||
+          !Number.isSafeInteger(r.process.pid) ||
+          r.process.pid < 1 ||
+          typeof r.process.start !== "string" ||
+          !/^\d{1,32}$/.test(r.process.start))) ||
       !Number.isSafeInteger(r.pid) ||
       r.pid < 1 ||
       ![
@@ -255,7 +272,8 @@ export class ScratchStore {
         hash(v.source) !== v.metadata.hash
       )
         throw new Error("SCRATCH_CORRUPT");
-    if (r.execution === "running" && !alive(r.pid)) r.execution = "interrupted";
+    if (r.execution === "running" && !alive(r.pid) && !isAlive(r.process))
+      r.execution = "interrupted";
     if (this.signature(p) !== signature)
       throw new Error("SCRATCH_BUSY: record changed during read");
     this.metrics.parseMs += performance.now() - started;
@@ -345,20 +363,38 @@ export class ScratchStore {
       this.index.delete(r.ref);
     }
   }
-  create(session: string, anchor: string | null, source: string): Scratch {
+  create(
+    session: string,
+    anchor: string | null,
+    source: string,
+    options: { language?: Scratch["language"]; run?: boolean } = {},
+  ): Scratch {
     if (session.length > 4096 || (anchor !== null && anchor.length > 4096))
       throw new Error("INVALID_SCRATCH_IDENTITY");
-    const v = revision("scratch", source);
+    const v = revision(
+      "scratch",
+      source,
+      undefined,
+      undefined,
+      undefined,
+      !options.language,
+    );
     delete v.source;
     return this.locked(() => {
       const r: Scratch = {
         version: 1,
+        ...(options.language ? { language: options.language } : {}),
         ref: randomUUID(),
         session,
         anchor,
         updated: Date.now(),
         pid: process.pid,
-        execution: v.syntax.valid ? "running" : "failed",
+        execution:
+          options.run === false
+            ? "not_started"
+            : options.language || v.syntax.valid
+              ? "running"
+              : "failed",
         delegated: false,
         revisions: [{ metadata: v, source }],
       };
@@ -403,7 +439,14 @@ export class ScratchStore {
       const source = ir ? applyIR(value.source, ir) : value.source;
       const next = ir
         ? {
-            metadata: revision("scratch", source, value, undefined, ir),
+            metadata: revision(
+              "scratch",
+              source,
+              value,
+              undefined,
+              ir,
+              !old.language,
+            ),
             source,
           }
         : value;
@@ -413,7 +456,9 @@ export class ScratchStore {
         updated: Date.now(),
         pid: process.pid,
         execution:
-          request.run && next.metadata.syntax.valid ? "running" : "not_started",
+          request.run && (old.language || next.metadata.syntax.valid)
+            ? "running"
+            : "not_started",
         revisions: ir
           ? [...old.revisions, next].slice(-this.limits.revisions)
           : old.revisions,
@@ -449,6 +494,7 @@ export class ScratchStore {
         throw new Error("SCRATCH_BUSY");
       r.updated = Date.now();
       r.pid = process.pid;
+      if (r.execution !== "running") delete r.process;
       if (r.revisions.length > this.limits.revisions)
         r.revisions = r.revisions.slice(-this.limits.revisions);
       this.reserve(all, r);

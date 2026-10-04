@@ -4,6 +4,12 @@ Pi host peers are unrestricted (`*`). Users control host upgrades; required API/
 
 Revisioned source editing in front of Pi's **original CodeMode executor**. No replacement VM, provider, replay engine, or telemetry.
 
+## Unified execution (0.5, opt-in)
+
+Set `unified:true` in `PI_CODEBUFFER` to use familiar `code`, `python`, `node`, and `bash` tools over one bounded execution engine. Set session interpreters/env/routes together or individually, assemble guarded source buffers in chunks, and run background jobs with completion notifications. File tools accept normal paths and `buffer:<ref>`. Keep `workflow.json`, but remove the standalone pi-workflow package from this loadout to avoid duplicate tool registration.
+
+See [Unified execution](docs/UNIFIED-EXECUTION.md) for setup, migration, limits, examples, and recovery boundaries. The sections below describe the original QuickJS source interface, still available in legacy mode and through unified `code`.
+
 ## Retained source: reuse, derive, or inspect ranges
 
 Successful `{code}` calls return `{ref, base}`. For a nontrivial program worth repeating, send `{ref, base, rerun:"from-start"}` instead of retransmitting its source. This explicitly repeats all effects and does not resume an instruction cursor. Missing acknowledgments after delegation fail closed.
@@ -12,7 +18,7 @@ For a similar program, add `edit` to that compact request. It uses the same cano
 
 For large edits, `readScratch` with `lines:true` returns `{base, units, lines:[{start,end,text}], nextOffset}`: exact UTF-16 spans, retaining CRLF and Unicode. Select the first span's start and last span's end for a guarded range replacement/deletion. Pages contain at most 256 spans/16000 units; body text is not duplicated. The default view remains plain `source`. `units` is the entire source length, not a token count.
 
-Short one-shot operations still belong to direct tools: ref/base overhead can exceed the cost of a tiny script. Retention is bounded; `promote` keeps intentionally reusable source durable. No automatic replay, workspace transactions, new host runtimes or language transpilation.
+Short one-shot operations still belong to direct tools: ref/base overhead can exceed the cost of a tiny script. Retention is bounded; `promote` keeps intentionally reusable source durable. No automatic replay, workspace transactions or language transpilation. Unified host tools use separately selected installed interpreters; QuickJS itself remains unchanged.
 
 ## Recommended workflow: code → success, or repair → rerun
 
@@ -63,7 +69,7 @@ Back up sessions before upgrading. v0.1.0 cannot reconstruct newer named IR reco
 
 CodeBuffer owns CodeMode source lifecycle, immutable source editing, execution/repair, bounded scratch retention and reusable **pure** editing primitives. A complete source edit commits one revision or none; syntax-invalid drafts remain repairable. This is not atomicity or rollback of tools invoked by the source.
 
-Workspace editing and command conveniences belong to **pi-workflow**, not this package. Its enhanced edit consumes the pure IR and Pi's public mutation queue; its workflow tool delegates through Pi's policy-visible bash tool. The multi-text planner here never writes files.
+In legacy mode, workspace editing and command conveniences remain in **pi-workflow**. Opt-in unified mode incorporates its enhanced edit kernel and configuration, using the same pure IR and public mutation queue. Host execution is authorized through the public bash hook path. The pure multi-text planner never writes files.
 
 Use direct tools for simple operations. For composition, CodeBuffer can be the sole model-visible script tool (`hideRawCodemode:true`, the default), while still delegating to native CodeMode. Keep native CodeMode enabled (`mode:"on"`) to retain direct tools; hiding its declaration does not remove the executor.
 

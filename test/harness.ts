@@ -28,6 +28,7 @@ export async function harness(
     builtin?: boolean;
     extension?: boolean;
     models?: boolean;
+    unified?: boolean;
   } = {},
 ) {
   const dir = mkdtempSync(join(tmpdir(), "codebuffer-sdk-"));
@@ -202,6 +203,7 @@ export async function harness(
     process.env.PI_CODEBUFFER = JSON.stringify({
       ...JSON.parse(previousConfig ?? "{}"),
       scratchDirectory: join(dir, "scratch"),
+      unified: options.unified ?? false,
     });
     try {
       await loader.reload();

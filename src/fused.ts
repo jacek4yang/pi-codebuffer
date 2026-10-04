@@ -110,6 +110,17 @@ export class Fused {
     ctx: ExtensionContext,
   ): { record: Scratch; value: Materialized; execute: boolean } {
     const manager = ctx.sessionManager;
+    if (args.action !== "exec") {
+      const existing = this.store.get(
+        args.ref,
+        manager.getSessionId(),
+        new Set(manager.getBranch().map((e) => e.id)),
+      );
+      if (existing.language)
+        throw new Error(
+          "LANGUAGE_MISMATCH: use " + existing.language + " for this buffer",
+        );
+    }
     const r =
       args.action === "exec"
         ? this.store.create(
