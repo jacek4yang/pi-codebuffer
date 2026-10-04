@@ -34,7 +34,18 @@ try {
     "git+https://github.com/jacek4yang/pi-generation-recovery.git";
   writeFileSync(
     join(target, "package.json"),
-    JSON.stringify({ private: true, type: "module" }),
+    JSON.stringify({
+      private: true,
+      type: "module",
+      // Direct unit imports use the host fixture's module graph; keep the
+      // separately installed extension untouched and without peer/dev packages.
+      dependencies: JSON.parse(
+        readFileSync(
+          installed ? join(installed, "package.json") : resolve("package.json"),
+          "utf8",
+        ),
+      ).dependencies,
+    }),
   );
   execFileSync(
     npm,
@@ -72,6 +83,9 @@ try {
   execFileSync(
     process.execPath,
     [
+      // Keep direct unit imports through root/src attached to this host's peers;
+      // actual extension loading below still uses Pi's loader and the original path.
+      "--preserve-symlinks",
       "--import",
       "tsx",
       "--test",
