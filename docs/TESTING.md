@@ -1,5 +1,13 @@
 # Testing
 
+## 0.5 unified execution
+
+Current CI pins Pi 1.0.2 for reproducibility; runtime peer versions remain unbounded. Unified mode has real-SDK regressions for selected interpreters/environment, final Bash policy denial, legacy-tool conflict rejection, draft assembly/file tools, named workflows, and one-shot background completion/cancellation. The packaged smoke includes these tests and both companion load orders in legacy and unified modes. Linux `/proc` and GNU timeout are required for the host job engine; no Windows host-job support is claimed. Renderer unit tests verify bounded safe previews and requested-edit colors, not a visual terminal inspection.
+
+The historical baseline and fixture hashes below document earlier releases, not the current smoke dependency selection. `scripts/install-smoke.ts` uses the current manifest's SDK version and its configured companion sources; CI supplies immutable companion Git revisions. Always run `npm pack` immediately before packaged smoke to avoid testing an old same-version tarball.
+
+## Historical baseline and common gates
+
 Baseline inspected: e46b4b33e592b7ff5bc8681399937646ce6d1cb3 (v0.1.0), Pi 1.0.0, Node 24.21.0. Stabilization began at bbf8b9f90f9ec13ad272401558f1d52af6012248. Release validation uses the pinned released Pi SDK, original QuickJS executor and local deterministic HTTP/SSE providers. No paid/real provider quota is consumed. TypeScript/ESLint are the configured gates; no TypeScript LSP server is configured in the development workspace.
 
 ```sh

@@ -5,6 +5,7 @@ import {
   existsSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -86,6 +87,13 @@ try {
       "test/legacy-scale.test.ts",
       "test/scratch-index.test.ts",
       "test/recovery.test.ts",
+      ...readdirSync(resolve("test"))
+        .filter((name) =>
+          /^(runtime-|execution-context|host-buffer|job-journal).*\.test\.ts$/.test(
+            name,
+          ),
+        )
+        .map((name) => `test/${name}`),
     ],
     {
       cwd: target,

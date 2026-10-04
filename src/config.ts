@@ -2,6 +2,7 @@ import { isAbsolute } from "node:path";
 import { defaults as scratchDefaults, type Limits } from "./scratch.js";
 export interface Config {
   enabled: boolean;
+  unified: boolean;
   hideRawCodemode: boolean;
   debug: boolean;
   scratchDirectory?: string;
@@ -13,6 +14,7 @@ export interface Config {
 export function config(raw = process.env.PI_CODEBUFFER): Config {
   const defaults: Config = {
     enabled: true,
+    unified: false,
     hideRawCodemode: true,
     debug: false,
     scratch: { ...scratchDefaults },
@@ -26,7 +28,7 @@ export function config(raw = process.env.PI_CODEBUFFER): Config {
     throw new Error("PI_CODEBUFFER must be a JSON object");
   for (const [key, v] of Object.entries(value)) {
     if (
-      ["enabled", "hideRawCodemode", "debug"].includes(key) &&
+      ["enabled", "hideRawCodemode", "debug", "unified"].includes(key) &&
       typeof v === "boolean"
     )
       continue;

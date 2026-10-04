@@ -128,6 +128,7 @@ test("retiring 200 lineages frees active slots without deleting old revisions", 
 test("configuration defaults and strict rejection", () => {
   assert.deepEqual(config("{}"), {
     enabled: true,
+    unified: false,
     hideRawCodemode: true,
     debug: false,
     scratch: {
@@ -142,11 +143,13 @@ test("configuration defaults and strict rejection", () => {
     preferredFormat: "replace",
   });
   assert.equal(config('{"enabled":false}').enabled, false);
+  assert.equal(config('{"unified":true}').unified, true);
   for (const raw of [
     "null",
     "[]",
     "1",
     '{"debug":"yes"}',
+    '{"unified":"yes"}',
     '{"extra":true}',
     '{"toString":true}',
     '{"__proto__":true}',

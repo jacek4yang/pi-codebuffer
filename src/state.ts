@@ -76,6 +76,7 @@ export function revision(
   previous?: Materialized,
   patch?: Revision["patch"],
   edit?: EditIR,
+  checkSyntax = true,
 ): Revision {
   if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name))
     throw new Error("INVALID_NAME: use 1–64 letters, digits, _ or -");
@@ -90,7 +91,15 @@ export function revision(
     parent: previous?.metadata.id ?? null,
     hash: hash(source),
     timestamp: new Date().toISOString(),
-    syntax: syntax(source),
+    syntax: checkSyntax
+      ? syntax(source)
+      : {
+          valid: false,
+          error:
+            "HOST_SYNTAX_PENDING: checked by selected interpreter before execution",
+          line: 1,
+          column: 1,
+        },
     ...(patch ? { patch } : edit ? { edit } : { source }),
     ...(previous && (previous.metadata.revision + 1) % 64 === 0
       ? { snapshot: { source, hash: hash(source) } }

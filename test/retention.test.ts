@@ -254,37 +254,48 @@ test("killed source owner is recovered as interrupted, never replayed; orphan st
 const native = process.env.PI_CODEBUFFER_COMPANION;
 const generation = process.env.PI_CODEBUFFER_GENERATION;
 if (native && generation)
-  for (const companionsFirst of [false, true])
-    test("both companions, order " + companionsFirst, async () => {
-      const h = await harness({
-        companion: native,
-        generation,
-        companionsFirst,
-      });
-      try {
-        const s = await h.make();
-        const r = await h.call(s, { action: "exec", source: "text(missing);" });
-        assert.equal(r.isError, true);
-        const identity = jsonOf(r);
-        await s.compact();
-        const file = s.sessionManager.getSessionFile()!;
-        s.dispose();
-        const reopened = await h.make(SessionManager.open(file));
-        const repaired = await h.call(reopened, {
-          action: "repair",
-          ref: identity.ref,
-          base: identity.base,
-          rerun: "from-start",
-          edit: {
-            format: "replace",
-            edits: [{ old: "missing", replacement: "7" }],
-          },
+  for (const unified of [false, true])
+    for (const companionsFirst of [false, true])
+      test(`both companions, order ${companionsFirst}, unified ${unified}`, async () => {
+        const h = await harness({
+          companion: native,
+          generation,
+          companionsFirst,
+          unified,
         });
-        assert.equal(repaired.isError, false, textOf(repaired));
-        const names = reopened.getActiveToolNames();
-        assert(names.includes("codebuffer"));
-        assert(names.includes("codemode"));
-      } finally {
-        await h.close();
-      }
-    });
+        try {
+          const s = await h.make();
+          const tool = unified ? "code" : "codebuffer";
+          const r = await h.call(
+            s,
+            { action: "exec", source: "text(missing);" },
+            tool,
+          );
+          assert.equal(r.isError, true);
+          const identity = jsonOf(r);
+          await s.compact();
+          const file = s.sessionManager.getSessionFile()!;
+          s.dispose();
+          const reopened = await h.make(SessionManager.open(file));
+          const repaired = await h.call(
+            reopened,
+            {
+              action: "repair",
+              ref: identity.ref,
+              base: identity.base,
+              rerun: "from-start",
+              edit: {
+                format: "replace",
+                edits: [{ old: "missing", replacement: "7" }],
+              },
+            },
+            tool,
+          );
+          assert.equal(repaired.isError, false, textOf(repaired));
+          const names = reopened.getActiveToolNames();
+          assert(names.includes(tool));
+          if (!unified) assert(names.includes("codemode"));
+        } finally {
+          await h.close();
+        }
+      });

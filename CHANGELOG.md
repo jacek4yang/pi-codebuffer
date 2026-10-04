@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add opt-in unified `code`, `python`, `node`, and `bash` tools with shared atomic execution contexts, interpreter selection, program-specific proxy routes, and existing Workflow configuration import.
+- Add guarded `buffer:<ref>` file-tool dispatch and chunk append without execution; retain native QuickJS and explicit side-effect rerun acknowledgment.
+- Add bounded background jobs, separate wait/deadline controls, PID/start-time ownership, cancellation escalation, restart inspection, and completion notifications gated by user/branch/lifecycle state.
+- Add private bounded runtime storage with inactive-session collection, persisted diagnostics, syntax-highlighted input previews, requested-edit colors, and expandable output.
+- Migrate the enhanced file-edit kernel into unified mode. Remove standalone pi-workflow from the loadout before enabling unified mode; keep its workflow.json configuration. Legacy mode remains the default.
+
 ## 0.4.2
 
 - Remove Pi version-number gates and use unrestricted host peers (`*`); keep required API and safety checks. Fixed dev/CI versions reproduce tests without blocking user upgrades. Untested hosts are not guaranteed compatible.
