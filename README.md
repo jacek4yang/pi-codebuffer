@@ -1,5 +1,7 @@
 # pi-codebuffer
 
+Pi host peers are unrestricted (`*`). Users control host upgrades; required API/safety checks remain. Dev/CI versions pin reproducible tests, not runtime support. Untested versions are not guaranteed compatible.
+
 Revisioned source editing in front of Pi's **original CodeMode executor**. No replacement VM, provider, replay engine, or telemetry.
 
 ## Retained source: reuse, derive, or inspect ranges
