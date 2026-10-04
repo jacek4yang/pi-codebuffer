@@ -1,6 +1,6 @@
 {
   "name": "pi-codebuffer",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Persistent revisioned source buffers for Pi's built-in CodeMode.",
   "type": "module",
   "license": "MIT",
@@ -48,7 +48,7 @@
     "benchmark": "tsx scripts/benchmark.ts"
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "~1.0.2",
+    "@earendil-works/pi-coding-agent": "*",
     "typebox": "*"
   },
   "devDependencies": {

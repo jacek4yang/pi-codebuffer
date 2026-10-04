@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- Remove Pi version-number gates and use unrestricted host peers (`*`); keep required API and safety checks. Fixed dev/CI versions reproduce tests without blocking user upgrades. Untested hosts are not guaranteed compatible.
+
 ## 0.4.1
 
 - Validate against Pi 1.0.2; host peers accept stable ~1.0.2 patches.
