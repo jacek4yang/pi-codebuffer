@@ -134,7 +134,7 @@ for (const protocol of ["legacy", "fused"] as const) {
 }
 const result = {
   method:
-    "Same candidate, real Pi1.0.1 SDK + QuickJS, local deterministic SSE provider. Complete tool request/result envelopes; schema bytes counted from all provider requests. No tokens/billing claim. No examples sent separately. Elapsed time includes provider fixture and session history. 24 programs + 3 repairs. Status observation excluded.",
+    "Same candidate, real Pi1.0.2 SDK + QuickJS, local deterministic SSE provider. Complete tool request/result envelopes; schema bytes counted from all provider requests. No tokens/billing claim. No examples sent separately. Elapsed time includes provider fixture and session history. 24 programs + 3 repairs. Status observation excluded.",
   node: process.version,
   reports,
 };

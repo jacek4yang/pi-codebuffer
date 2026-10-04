@@ -9,6 +9,11 @@ permissions:
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+# Reproducible tested companions break cross-repository release-order cycles.
+# Runtime installs remain unpinned; daily smoke validates the actual installed stack.
+env:
+  PI_CODEBUFFER_GENERATION_TARBALL: git+https://github.com/jacek4yang/pi-generation-recovery.git#f35e1c7b4a5de0080b33230a63d96dea8372e53b
+  PI_CODEBUFFER_COMPANION_TARBALL: git+https://github.com/jacek4yang/pi-codex-native-compaction.git#d27cd26463249e7d37fb17536b7e40bc39d1260d
 jobs:
   windows-boundary:
     runs-on: windows-latest

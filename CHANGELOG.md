@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- Validate against Pi 1.0.2; host peers accept stable ~1.0.2 patches.
+
 ## 0.4.0
 
 - Set Pi SDK/peers to the single 1.0.1 baseline.
